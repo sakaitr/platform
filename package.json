@@ -16,7 +16,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
     "provision": "tsx scripts/provision.ts",
-    "worker": "tsx worker/index.ts"
+    "worker": "tsx worker/index.ts",
+    "db:sync": "bash scripts/db-sync.sh",
+    "db:sync:test": "DATABASE_ADMIN_URL=postgresql://agno_owner:owner_dev@localhost:5432/agno_platform_test bash scripts/db-sync.sh"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",
