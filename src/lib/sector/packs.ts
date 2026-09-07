@@ -1,3 +1,5 @@
+import { ALL_PERMISSIONS } from "@/lib/permissions";
+
 export type PackField = {
   entityKey: string;
   fieldKey: string;
@@ -15,6 +17,15 @@ export type PackSequence = {
   periodReset: "none" | "yearly" | "monthly";
 };
 
+export type PackRole = {
+  key: string;
+  label: string;
+  /** 0 = en dar, 3 = en geniş. */
+  hierarchyLevel: number;
+  isSystem?: boolean;
+  permissions: readonly string[];
+};
+
 export type SectorPack = {
   key: string;
   name: string;
@@ -29,10 +40,31 @@ export type SectorPack = {
   entityFields: readonly PackField[];
   /** Belge numarası dizileri */
   numbering: readonly PackSequence[];
+  /** Kurulacak varsayılan roller */
+  roles: readonly PackRole[];
 };
 
 const COMMON_NUMBERING: readonly PackSequence[] = [
   { sequenceKey: "fatura", prefix: "FT", padding: 6, periodReset: "yearly" },
+];
+
+/** Her pakette bulunan çekirdek roller. Paket kendi rollerini üstüne ekler. */
+const COMMON_ROLES: readonly PackRole[] = [
+  { key: "owner", label: "Sahip", hierarchyLevel: 3, isSystem: true, permissions: ALL_PERMISSIONS },
+  {
+    key: "admin",
+    label: "Yönetici",
+    hierarchyLevel: 3,
+    isSystem: true,
+    permissions: ALL_PERMISSIONS.filter((p) => !p.startsWith("roles:")),
+  },
+  {
+    key: "viewer",
+    label: "İzleyici",
+    hierarchyLevel: 0,
+    isSystem: true,
+    permissions: ALL_PERMISSIONS.filter((p) => p.endsWith(":read")),
+  },
 ];
 
 /**
@@ -64,6 +96,27 @@ export const SECTOR_PACKS: Record<string, SectorPack> = {
       ...COMMON_NUMBERING,
       { sequenceKey: "hakedis", prefix: "HK", padding: 6, periodReset: "yearly" },
     ],
+    roles: [
+      ...COMMON_ROLES,
+      {
+        key: "operasyon",
+        label: "Operasyon",
+        hierarchyLevel: 1,
+        permissions: [
+          "dashboard:read", "arrivals:read", "arrivals:create", "arrivals:update",
+          "yolcular:read", "guzergahlar:read", "araclar:read", "raporlar:read",
+        ],
+      },
+      {
+        key: "muhasebe",
+        label: "Muhasebe",
+        hierarchyLevel: 1,
+        permissions: [
+          "dashboard:read", "finans_gider:read", "finans_gider:create", "finans_hareket:read",
+          "hakedis:read", "cari:read", "raporlar:read", "raporlar:export",
+        ],
+      },
+    ],
   },
 
   lojistik: {
@@ -91,6 +144,27 @@ export const SECTOR_PACKS: Record<string, SectorPack> = {
       ...COMMON_NUMBERING,
       { sequenceKey: "irsaliye", prefix: "IR", padding: 6, periodReset: "yearly" },
     ],
+    roles: [
+      ...COMMON_ROLES,
+      {
+        key: "operasyon",
+        label: "Operasyon",
+        hierarchyLevel: 1,
+        permissions: [
+          "dashboard:read", "guzergahlar:read", "araclar:read", "transferler:read",
+          "transferler:create", "raporlar:read",
+        ],
+      },
+      {
+        key: "muhasebe",
+        label: "Muhasebe",
+        hierarchyLevel: 1,
+        permissions: [
+          "dashboard:read", "finans_gider:read", "finans_gider:create",
+          "cari:read", "raporlar:read", "raporlar:export",
+        ],
+      },
+    ],
   },
 
   pilates: {
@@ -116,6 +190,15 @@ export const SECTOR_PACKS: Record<string, SectorPack> = {
       { entityKey: "customer", fieldKey: "saglik_notu", label: "Sağlık Notu", type: "text", position: 2 },
     ],
     numbering: COMMON_NUMBERING,
+    roles: [
+      ...COMMON_ROLES,
+      {
+        key: "egitmen",
+        label: "Eğitmen",
+        hierarchyLevel: 1,
+        permissions: ["dashboard:read", "musteriler:read", "raporlar:read"],
+      },
+    ],
   },
 
   oto_servis: {
@@ -143,6 +226,15 @@ export const SECTOR_PACKS: Record<string, SectorPack> = {
     numbering: [
       ...COMMON_NUMBERING,
       { sequenceKey: "is_emri", prefix: "IE", padding: 6, periodReset: "yearly" },
+    ],
+    roles: [
+      ...COMMON_ROLES,
+      {
+        key: "usta",
+        label: "Usta",
+        hierarchyLevel: 1,
+        permissions: ["dashboard:read", "musteriler:read", "araclar:read"],
+      },
     ],
   },
 };

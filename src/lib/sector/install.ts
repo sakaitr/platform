@@ -3,6 +3,8 @@ import { dbAdmin } from "@/db/admin";
 import {
   entityFields,
   numberingSequences,
+  rolePermissions,
+  roles,
   subscriptions,
   tenantCapabilities,
   tenantModules,
@@ -104,6 +106,37 @@ export async function applySectorPack(tenantId: string, packKey: string): Promis
     }
   }
 
+  for (const packRole of pack.roles) {
+    const existing = await dbAdmin
+      .select({ id: roles.id })
+      .from(roles)
+      .where(and(eq(roles.tenantId, tenantId), eq(roles.key, packRole.key)))
+      .limit(1);
+
+    if (existing.length === 0) {
+      const [created] = await dbAdmin
+        .insert(roles)
+        .values({
+          tenantId,
+          key: packRole.key,
+          label: packRole.label,
+          hierarchyLevel: packRole.hierarchyLevel,
+          isSystem: packRole.isSystem ?? false,
+        })
+        .returning({ id: roles.id });
+
+      if (packRole.permissions.length > 0) {
+        await dbAdmin.insert(rolePermissions).values(
+          packRole.permissions.map((permissionKey) => ({
+            tenantId,
+            roleId: created!.id,
+            permissionKey,
+          })),
+        );
+      }
+    }
+  }
+
   await dbAdmin
     .update(tenants)
     .set({ sectorPack: pack.key, sectorPackVersion: pack.version, updatedAt: new Date() })
@@ -160,6 +193,17 @@ export async function provisionTenant(
     .returning({ id: users.id });
 
   await applySectorPack(tenantId, pack.key);
+
+  // Owner kullanıcıyı "owner" rolüne bağla — paket kurulduktan SONRA
+  const [ownerRole] = await dbAdmin
+    .select({ id: roles.id })
+    .from(roles)
+    .where(and(eq(roles.tenantId, tenantId), eq(roles.key, "owner")))
+    .limit(1);
+
+  if (ownerRole) {
+    await dbAdmin.update(users).set({ roleId: ownerRole.id }).where(eq(users.id, user!.id));
+  }
 
   return { tenantId, userId: user!.id };
 }

@@ -114,3 +114,41 @@ describe("sektör paketi", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 });
+
+import { listRolesWithCounts } from "@/lib/rbac";
+
+describe("sektör paketi rolleri", () => {
+  beforeEach(async () => {
+    await resetDatabase();
+  });
+
+  it("paket varsayılan rollerini kurar", async () => {
+    const tenant = await seedTenant("turizm");
+    await applySectorPack(tenant.id, "turizm");
+    const list = await listRolesWithCounts(tenant.id);
+    const keys = list.map((r) => r.key);
+    expect(keys).toContain("owner");
+    expect(keys).toContain("admin");
+    expect(keys).toContain("operasyon");
+    expect(keys).toContain("muhasebe");
+    expect(list.find((r) => r.key === "owner")!.permissionCount).toBeGreaterThan(50);
+  });
+
+  it("pilates paketi eğitmen rolü kurar, turizm kurmaz", async () => {
+    const p = await seedTenant("pilates");
+    await applySectorPack(p.id, "pilates");
+    expect((await listRolesWithCounts(p.id)).map((r) => r.key)).toContain("egitmen");
+
+    const t = await seedTenant("turizm");
+    await applySectorPack(t.id, "turizm");
+    expect((await listRolesWithCounts(t.id)).map((r) => r.key)).not.toContain("egitmen");
+  });
+
+  it("iki kez uygulanınca rol çoğaltmaz", async () => {
+    const tenant = await seedTenant("lojistik");
+    await applySectorPack(tenant.id, "lojistik");
+    await applySectorPack(tenant.id, "lojistik");
+    const keys = (await listRolesWithCounts(tenant.id)).map((r) => r.key);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+});

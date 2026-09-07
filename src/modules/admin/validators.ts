@@ -10,3 +10,8 @@ export const SetTermSchema = z.object({
   termKey: z.string().min(1, "Terim anahtarı gerekli."),
   value: z.string().min(1, "Değer boş olamaz."),
 });
+
+export const AssignRoleSchema = z.object({
+  userId: z.string().uuid("Geçersiz kullanıcı."),
+  roleId: z.string().uuid("Geçersiz rol."),
+});

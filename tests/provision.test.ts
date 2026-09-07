@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { dbAdmin } from "@/db/admin";
 import { subscriptions, tenantModules, tenants, users } from "@/db/schema";
 import { verifyPassword } from "@/lib/auth";
+import { getRolePermissions } from "@/lib/rbac";
 import { provisionTenant } from "@/lib/sector/install";
 import { resetDatabase } from "./setup";
 
@@ -41,6 +42,11 @@ describe("provizyon", () => {
       .from(tenantModules)
       .where(eq(tenantModules.tenantId, tenantId));
     expect(mods.map((m) => m.moduleKey)).toContain("muhasebe");
+
+    const [owner] = await dbAdmin.select().from(users).where(eq(users.id, userId));
+    expect(owner!.roleId).not.toBeNull();
+    const perms = await getRolePermissions(tenantId, owner!.roleId!);
+    expect(perms.has("users:create")).toBe(true);
   });
 
   it("aynı slug ile ikinci kez provizyon hata verir", async () => {

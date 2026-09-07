@@ -1,5 +1,5 @@
 import { asc, eq } from "drizzle-orm";
-import { entityFields, terminologyOverrides, users } from "@/db/schema";
+import { entityFields, roles, terminologyOverrides, users } from "@/db/schema";
 import { withTenant } from "@/db/tenant";
 
 export async function listUsers(tenantId: string) {
@@ -35,5 +35,23 @@ export async function listAllFields(tenantId: string) {
       .from(entityFields)
       .where(eq(entityFields.tenantId, tenantId))
       .orderBy(asc(entityFields.entityKey), asc(entityFields.position)),
+  );
+}
+
+export async function listUsersWithRoles(tenantId: string) {
+  return withTenant(tenantId, (tx) =>
+    tx
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        isActive: users.isActive,
+        roleId: users.roleId,
+        roleLabel: roles.label,
+      })
+      .from(users)
+      .leftJoin(roles, eq(roles.id, users.roleId))
+      .where(eq(users.tenantId, tenantId))
+      .orderBy(asc(users.name)),
   );
 }
