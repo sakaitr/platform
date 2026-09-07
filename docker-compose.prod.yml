@@ -10,7 +10,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_started }
-    networks: [coolify]
+    networks: [internal, coolify]
     labels:
       - traefik.enable=true
       - traefik.docker.network=coolify
@@ -34,7 +34,7 @@ services:
       app: { condition: service_started }
       postgres: { condition: service_healthy }
       redis: { condition: service_started }
-    networks: [coolify]
+    networks: [internal]
 
   postgres:
     image: postgres:16-alpine
@@ -50,19 +50,26 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-    networks: [coolify]
+    networks: [internal]
 
   redis:
     image: redis:7-alpine
     container_name: agno_platform_redis
     restart: unless-stopped
     volumes: [redis_data:/data]
-    networks: [coolify]
+    networks: [internal]
 
 volumes:
   pg_data:
   redis_data:
 
 networks:
+  # İzole iç ağ — postgres/redis SADECE burada.
+  # coolify ağında `postgres` ve `redis` alias'ları BAŞKA projelerle çakışıyor
+  # (coolify-db, cardflow, agnoyntm). Round-robin DNS yanlış veritabanına
+  # bağlanmaya yol açıyordu. İç ağ bu çakışmayı tamamen keser.
+  internal:
+    driver: bridge
+  # Sadece app bağlanır — Traefik'in erişebilmesi için.
   coolify:
     external: true
