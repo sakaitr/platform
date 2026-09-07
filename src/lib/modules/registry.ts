@@ -1,6 +1,4 @@
-import type { UserRole } from "@/db/schema";
 import type { TenantAccess } from "@/lib/licensing";
-import { hasPermission, type Permission } from "@/lib/permissions";
 
 export type ModuleNavChild = { label: string; href: string; capability?: string };
 
@@ -10,7 +8,7 @@ export type ModuleDefinition = {
   /** lucide-react ikon adı */
   icon: string;
   href: string;
-  permission: Permission;
+  permission: string;
   /** Bu modül çalışmak için başka modüle muhtaçsa — örn. muhasebe → filo (araç verisi) */
   dependsOn?: readonly string[];
   /** Modül içinde sektöre göre açılıp kapanan alt-yetenekler */
@@ -25,14 +23,14 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     label: "Dashboard",
     icon: "LayoutDashboard",
     href: "/dashboard",
-    permission: "dashboard.read",
+    permission: "dashboard:read",
   },
   {
     key: "muhasebe",
     label: "Muhasebe",
     icon: "Calculator",
     href: "/muhasebe",
-    permission: "dashboard.read",
+    permission: "dashboard:read",
     capabilities: ["muhasebe.irsaliye", "muhasebe.hakedis", "muhasebe.mutabakat"],
     children: [
       { label: "Cari", href: "/muhasebe/cari" },
@@ -41,15 +39,17 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
       { label: "Hakedişler", href: "/muhasebe/hakedis", capability: "muhasebe.hakedis" },
     ],
   },
-  { key: "filo", label: "Filo", icon: "Truck", href: "/filo", permission: "dashboard.read" },
+  { key: "filo", label: "Filo", icon: "Truck", href: "/filo", permission: "dashboard:read" },
   {
     key: "admin",
     label: "Yönetim",
     icon: "Settings",
     href: "/admin",
-    permission: "users.manage",
+    permission: "users:read",
     children: [
       { label: "Kullanıcılar", href: "/admin/users" },
+      { label: "Roller", href: "/admin/roller" },
+      { label: "Firma Kapsamı", href: "/admin/kapsam" },
       { label: "Terimler", href: "/admin/terminoloji" },
       { label: "Özel Alanlar", href: "/admin/alanlar" },
     ],
@@ -61,9 +61,12 @@ export function getModule(key: string): ModuleDefinition | undefined {
 }
 
 /** Hem lisans hem izin süzgecinden geçen modüller. */
-export function buildNavigation(role: UserRole, access: TenantAccess): ModuleDefinition[] {
+/** Hem lisans hem izin süzgecinden geçen modüller. */
+export function buildNavigation(
+  access: TenantAccess & { permissions: Set<string> },
+): ModuleDefinition[] {
   return MODULE_REGISTRY.filter((module) => {
-    if (!hasPermission(role, module.permission)) return false;
+    if (!access.permissions.has(module.permission)) return false;
     if (module.key === "dashboard") return true;
     return access.modules.get(module.key)?.allowed === true;
   });

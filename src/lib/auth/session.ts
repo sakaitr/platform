@@ -2,6 +2,8 @@ import { createHash, randomBytes } from "node:crypto";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { dbAdmin } from "@/db/admin";
 import { sessions, users, type UserRole } from "@/db/schema";
+import { getRolePermissions } from "@/lib/rbac";
+import { getUserScope } from "@/lib/scope";
 
 export const SESSION_DURATION_DAYS = 30;
 
@@ -10,7 +12,12 @@ export type SessionUser = {
   tenantId: string;
   email: string;
   name: string;
+  /** Eski enum — geçiş süresince korunur. */
   role: UserRole;
+  roleId: string | null;
+  permissions: Set<string>;
+  /** null = tüm kiracı kapsamı */
+  scope: string[] | null;
 };
 
 export function hashToken(token: string): string {
@@ -36,6 +43,7 @@ export async function getSessionByToken(token: string): Promise<SessionUser | nu
       email: users.email,
       name: users.name,
       role: users.role,
+      roleId: users.roleId,
       isActive: users.isActive,
     })
     .from(sessions)
@@ -51,7 +59,24 @@ export async function getSessionByToken(token: string): Promise<SessionUser | nu
 
   const row = rows[0];
   if (!row || !row.isActive) return null;
-  return { userId: row.userId, tenantId: row.tenantId, email: row.email, name: row.name, role: row.role };
+
+  // Rol ve kapsam HER İSTEKTE veritabanından çözülür — çerezde taşınmaz.
+  // (aycanops'ta rol çerezdeydi ve DB'de rol değişince eskide kalıyordu.)
+  const permissions = row.roleId
+    ? await getRolePermissions(row.tenantId, row.roleId)
+    : new Set<string>();
+  const scope = await getUserScope(row.tenantId, row.userId);
+
+  return {
+    userId: row.userId,
+    tenantId: row.tenantId,
+    email: row.email,
+    name: row.name,
+    role: row.role,
+    roleId: row.roleId,
+    permissions,
+    scope,
+  };
 }
 
 export async function destroySessionByToken(token: string): Promise<void> {

@@ -17,7 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const pack = getPack(access.tenant.sectorPack);
   const terms = await getTerms(session.tenantId, pack.terminology);
 
-  const items: NavItem[] = buildNavigation(session.role, access).map((module) => {
+  const items: NavItem[] = buildNavigation({ ...access, permissions: session.permissions }).map((module) => {
     const termKey = `module.${module.key}`;
     const translated = terms.t(termKey);
     return {

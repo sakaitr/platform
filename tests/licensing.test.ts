@@ -84,7 +84,10 @@ describe("lisans durum makinesi", () => {
   it("navigasyon lisans ve izne göre süzülür", async () => {
     const tenant = await seed({ subEnd: daysFromNow(20) });
     const access = await getTenantAccess(tenant.id);
-    const keys = buildNavigation("owner", access).map((m) => m.key);
+    const keys = buildNavigation({
+      ...access,
+      permissions: new Set(["dashboard:read", "users:read"]),
+    }).map((m) => m.key);
     expect(keys).toContain("muhasebe");
     expect(keys).not.toContain("filo");
   });

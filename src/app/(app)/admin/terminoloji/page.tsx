@@ -4,7 +4,7 @@ import { getPack } from "@/lib/sector/install";
 import { getTerms } from "@/lib/sector/terminology";
 
 export default async function AdminTerminologyPage() {
-  const session = await requirePermission("terminology.manage");
+  const session = await requirePermission("terminology:read");
   const access = await getTenantAccess(session.tenantId);
   const pack = getPack(access.tenant.sectorPack);
   const terms = await getTerms(session.tenantId, pack.terminology);

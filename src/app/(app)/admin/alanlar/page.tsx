@@ -10,7 +10,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export default async function AdminFieldsPage() {
-  const session = await requirePermission("fields.manage");
+  const session = await requirePermission("fields:read");
   const fields = await listAllFields(session.tenantId);
 
   return (

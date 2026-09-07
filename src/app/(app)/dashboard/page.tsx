@@ -8,7 +8,7 @@ export default async function DashboardPage() {
   const session = await requireAuth();
   const access = await getTenantAccess(session.tenantId);
   const pack = getPack(access.tenant.sectorPack);
-  const modules = buildNavigation(session.role, access).filter((m) => m.key !== "dashboard");
+  const modules = buildNavigation({ ...access, permissions: session.permissions }).filter((m) => m.key !== "dashboard");
 
   return (
     <div className="space-y-6">

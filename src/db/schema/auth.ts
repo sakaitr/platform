@@ -1,4 +1,4 @@
-import { boolean, index, pgEnum, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import { boolean, index, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 import { tenants } from "./tenants";
 
 export const userRoleEnum = pgEnum("user_role", ["owner", "admin", "manager", "member", "viewer"]);
@@ -14,6 +14,8 @@ export const users = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     passwordHash: text("password_hash").notNull(),
     role: userRoleEnum("role").notNull().default("member"),
+    /** Yeni RBAC. `role` enum'u geçiş süresince korunur, yeni kod bunu kullanır. */
+    roleId: uuid("role_id"),
     isActive: boolean("is_active").notNull().default(true),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -93,6 +95,28 @@ export const auditLogs = pgTable(
   (t) => ({ tenantIdx: index("audit_logs_tenant_idx").on(t.tenantId) }),
 );
 
+/** Kullanıcının erişebileceği firmalar. Boş = kısıtlama yok (tüm kiracı kapsamı). */
+export const userScopes = pgTable(
+  "user_scopes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Firma modülü Plan 7'de gelecek; şimdilik serbest uuid, FK yok. */
+    companyId: uuid("company_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniq: uniqueIndex("user_scopes_uniq").on(t.userId, t.companyId),
+    tenantIdx: index("user_scopes_tenant_idx").on(t.tenantId),
+  }),
+);
+
+export type UserScope = typeof userScopes.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type UserRole = (typeof userRoleEnum.enumValues)[number];

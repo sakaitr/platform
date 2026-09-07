@@ -13,7 +13,7 @@ import { InviteSchema, SetTermSchema } from "./validators";
 export type ActionState = { error: string } | { ok: string } | null;
 
 export async function inviteUserAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const session = await requirePermission("users.manage");
+  const session = await requirePermission("users:invite");
 
   const parsed = InviteSchema.safeParse({
     email: formData.get("email"),
@@ -41,7 +41,7 @@ export async function inviteUserAction(_prev: ActionState, formData: FormData): 
 }
 
 export async function setTermAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const session = await requirePermission("terminology.manage");
+  const session = await requirePermission("terminology:update");
 
   const parsed = SetTermSchema.safeParse({
     termKey: formData.get("termKey"),

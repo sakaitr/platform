@@ -1,6 +1,5 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { hasPermission, type Permission } from "@/lib/permissions";
 import { getSessionByToken, type SessionUser } from "./session";
 
 export const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? "agno_platform_session";
@@ -18,8 +17,13 @@ export async function requireAuth(): Promise<SessionUser> {
   return session;
 }
 
-export async function requirePermission(permission: Permission): Promise<SessionUser> {
+/** Oturumun izin kümesinde anahtar var mı. */
+export function hasPermission(session: SessionUser, permissionKey: string): boolean {
+  return session.permissions.has(permissionKey);
+}
+
+export async function requirePermission(permissionKey: string): Promise<SessionUser> {
   const session = await requireAuth();
-  if (!hasPermission(session.role, permission)) redirect("/dashboard");
+  if (!hasPermission(session, permissionKey)) redirect("/dashboard");
   return session;
 }
