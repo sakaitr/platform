@@ -1,0 +1,75 @@
+name: agno-platform
+
+services:
+  app:
+    build: .
+    image: agno-platform:latest
+    container_name: agno_platform_app
+    restart: unless-stopped
+    env_file: .env.production
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    networks: [internal, coolify]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.routers.agno-platform-http.entryPoints=http
+      - traefik.http.routers.agno-platform-http.rule=Host(`platform.agno.digital`)
+      - traefik.http.routers.agno-platform-http.middlewares=agno-platform-redir
+      - traefik.http.middlewares.agno-platform-redir.redirectscheme.scheme=https
+      - traefik.http.routers.agno-platform-https.entryPoints=https
+      - traefik.http.routers.agno-platform-https.rule=Host(`platform.agno.digital`)
+      - traefik.http.routers.agno-platform-https.tls=true
+      - traefik.http.routers.agno-platform-https.tls.certresolver=letsencrypt
+      - traefik.http.services.agno-platform.loadbalancer.server.port=3000
+
+  worker:
+    image: agno-platform:latest
+    container_name: agno_platform_worker
+    restart: unless-stopped
+    env_file: .env.production
+    command: ["tsx", "worker/index.ts"]
+    depends_on:
+      app: { condition: service_started }
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    networks: [internal]
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: agno_platform_pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: agno_owner
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: agno_platform
+    volumes: [pg_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agno_owner"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  redis:
+    image: redis:7-alpine
+    container_name: agno_platform_redis
+    restart: unless-stopped
+    volumes: [redis_data:/data]
+    networks: [internal]
+
+volumes:
+  pg_data:
+  redis_data:
+
+networks:
+  # İzole iç ağ — postgres/redis SADECE burada.
+  # coolify ağında `postgres` ve `redis` alias'ları BAŞKA projelerle çakışıyor
+  # (coolify-db, cardflow, agnoyntm). Round-robin DNS yanlış veritabanına
+  # bağlanmaya yol açıyordu. İç ağ bu çakışmayı tamamen keser.
+  internal:
+    driver: bridge
+  # Sadece app bağlanır — Traefik'in erişebilmesi için.
+  coolify:
+    external: true
