@@ -8,6 +8,7 @@ services:
     restart: unless-stopped
     env_file: .env.production
     depends_on:
+      uploads_init: { condition: service_completed_successfully }
       postgres: { condition: service_healthy }
       redis: { condition: service_started }
     volumes: [uploads:/data/uploads]
@@ -35,6 +36,14 @@ services:
       app: { condition: service_started }
       postgres: { condition: service_healthy }
       redis: { condition: service_started }
+    volumes: [uploads:/data/uploads]
+    networks: [internal]
+
+  # Yükleme birimi ilk oluştuğunda root'a ait olur; uygulama nextjs (1001)
+  # ile çalıştığı için yazamaz. Bu tek seferlik iş sahipliği düzeltir.
+  uploads_init:
+    image: alpine:3
+    command: sh -c "mkdir -p /data/uploads && chown -R 1001:65533 /data/uploads"
     volumes: [uploads:/data/uploads]
     networks: [internal]
 
