@@ -1,163 +1,181 @@
 import Link from "next/link";
-import {
-  Badge,
-  Button,
-  Card,
-  EmptyRow,
-  Field,
-  FilterBar,
-  PageHeader,
-  Table,
-  Td,
-  inputClass,
-} from "@/components/ui";
-import { EntityForm, type FieldSpec } from "@/components/ui/entity-form";
+import { Badge, Button, Card, EmptyRow, PageHeader, Table } from "@/components/ui";
 import { one, pageContext, type SearchParams } from "@/lib/page-context";
 import { formatDate, istanbulDayKey, istanbulTime, shiftDay } from "@/lib/time";
 import { companyOptions } from "@/modules/crm/queries";
-import { vehicleOptions } from "@/modules/filo/queries";
-import { deleteArrivalAction, saveArrivalAction } from "@/modules/operasyon/arrivals/actions";
-import { delayMinutes, listArrivals, shiftsOnDate } from "@/modules/operasyon/arrivals/queries";
+import { markAllArrivalsAction } from "@/modules/operasyon/arrivals/actions";
+import { arrivalBoard, boardSummary, listShifts, pickShift } from "@/modules/operasyon/arrivals/board";
+import { ArrivalRow } from "./arrival-row";
+import { PlateEntry } from "./plate-entry";
 
 export default async function GirisKontrolPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const { session, t } = await pageContext("arrivals:read", "operasyon");
 
   const date = one(params, "tarih") ?? istanbulDayKey();
-  const filter = {
-    date,
-    companyId: one(params, "firma"),
-    shift: one(params, "vardiya"),
-    scope: session.scope,
+  const firmalar = await companyOptions(session.tenantId, session.scope);
+
+  const companyId = one(params, "firma") ?? firmalar[0]?.id;
+  const canWrite = session.permissions.has("arrivals:create");
+  const canBulk = session.permissions.has("arrivals:bulk");
+
+  const link = (next: Record<string, string | undefined>): string => {
+    const query = new URLSearchParams();
+    const merged = { tarih: date, firma: companyId, vardiya: one(params, "vardiya"), ...next };
+    for (const [k, v] of Object.entries(merged)) if (v) query.set(k, v);
+    return `/operasyon/giris-kontrol?${query.toString()}`;
   };
 
-  const [rows, firmalar, araclar, shifts] = await Promise.all([
-    listArrivals(session.tenantId, filter),
-    companyOptions(session.tenantId, session.scope),
-    vehicleOptions(session.tenantId, session.scope),
-    shiftsOnDate(session.tenantId, date),
-  ]);
+  if (!companyId) {
+    return (
+      <div className="space-y-4">
+        <PageHeader title="Giriş Kontrol" description="Araç kabulü ve geliş kaydı" />
+        <Card className="p-6 text-sm text-neutral-500">
+          Önce {t("customer").toLocaleLowerCase("tr-TR")} tanımlayın.{" "}
+          <Link href="/crm/firmalar" className="underline">
+            {t("customer_plural")} sayfası
+          </Link>
+        </Card>
+      </div>
+    );
+  }
 
-  const late = rows.filter((r) => (delayMinutes(r.plannedAt, r.arrivedAt) ?? 0) > 0).length;
+  const shifts = await listShifts(session.tenantId, companyId);
+  const nowMinutes = (() => {
+    const [h, m] = istanbulTime().split(":").map(Number);
+    return (h ?? 0) * 60 + (m ?? 0);
+  })();
+  // Vardiya seçilmediyse saate en yakın olan açılır.
+  const shift = one(params, "vardiya") ?? pickShift(shifts, nowMinutes) ?? "sabah";
 
-  const fields: readonly FieldSpec[] = [
-    {
-      name: "vehicleId",
-      label: t("asset"),
-      type: "select",
-      required: true,
-      options: araclar.map((v) => ({ value: v.id, label: v.plate })),
-    },
-    {
-      name: "companyId",
-      label: t("customer"),
-      type: "select",
-      options: firmalar.map((f) => ({ value: f.id, label: f.name })),
-    },
-    { name: "arrivalDate", label: "Tarih", type: "date", required: true },
-    { name: "shift", label: "Vardiya", type: "text", required: true, hint: "sabah, akşam, 08-16…" },
-    { name: "arrivedAt", label: "Geliş Saati", type: "time", required: true },
-    { name: "plannedAt", label: "Planlanan Saat", type: "time", hint: "Doluysa gecikme hesaplanır" },
-    { name: "note", label: "Not", type: "textarea", wide: true },
-  ];
-
-  const canWrite = session.permissions.has("arrivals:create");
-  const canDelete = session.permissions.has("arrivals:delete");
-  const linkFor = (d: string): string => `/operasyon/giris-kontrol?tarih=${d}`;
+  const rows = await arrivalBoard(session.tenantId, { companyId, date, shift });
+  const summary = boardSummary(rows);
+  const pending = rows.filter((r) => r.arrivalId === null);
+  const companyName = firmalar.find((f) => f.id === companyId)?.name ?? "";
 
   return (
     <div className="space-y-4">
       <PageHeader
         title="Giriş Kontrol"
-        description={`${formatDate(date)} · ${rows.length} geliş${late > 0 ? ` · ${late} gecikme` : ""}`}
-        action={
-          canWrite ? (
-            <EntityForm
-              action={saveArrivalAction}
-              fields={fields}
-              values={{ arrivalDate: date, shift: "sabah", arrivedAt: istanbulTime() }}
-              openLabel="Geliş Kaydet"
-            />
-          ) : null
-        }
+        description={`${companyName} · ${formatDate(date)} · ${shift}`}
       />
 
-      <Card className="flex flex-wrap items-center gap-2 p-3 text-xs">
-        <Link href={linkFor(shiftDay(date, -1))} className="rounded-lg border border-neutral-300 px-3 py-1.5">
+      <div className="grid gap-3 sm:grid-cols-4">
+        {[
+          { label: "Beklenen araç", value: summary.toplam },
+          { label: "Gelen", value: summary.gelen },
+          { label: "Bekleyen", value: summary.bekleyen, alert: summary.bekleyen > 0 },
+          { label: "Geciken", value: summary.geciken, alert: summary.geciken > 0 },
+        ].map((tile) => (
+          <Card key={tile.label} className={`p-4 ${tile.alert ? "border-amber-300 bg-amber-50" : ""}`}>
+            <p className="text-xs uppercase tracking-wide text-neutral-500">{tile.label}</p>
+            <p className="mt-1 text-2xl font-semibold">{tile.value}</p>
+          </Card>
+        ))}
+      </div>
+
+      <Card className="flex flex-wrap items-center gap-2 p-3">
+        <Link href={link({ tarih: shiftDay(date, -1) })} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs">
           ← Önceki gün
         </Link>
-        <Link href={linkFor(istanbulDayKey())} className="rounded-lg border border-neutral-300 px-3 py-1.5">
+        <Link href={link({ tarih: istanbulDayKey() })} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs">
           Bugün
         </Link>
-        <Link href={linkFor(shiftDay(date, 1))} className="rounded-lg border border-neutral-300 px-3 py-1.5">
+        <Link href={link({ tarih: shiftDay(date, 1) })} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs">
           Sonraki gün →
         </Link>
-      </Card>
 
-      <FilterBar action="/operasyon/giris-kontrol">
-        <Field label="Tarih">
-          <input type="date" name="tarih" defaultValue={date} className={inputClass} />
-        </Field>
-        <Field label={t("customer")}>
-          <select name="firma" defaultValue={filter.companyId ?? ""} className={inputClass}>
-            <option value="">Hepsi</option>
+        <span className="mx-2 h-4 w-px bg-neutral-200" />
+
+        <form method="get" action="/operasyon/giris-kontrol" className="flex items-center gap-2">
+          <input type="hidden" name="tarih" value={date} />
+          <select
+            name="firma"
+            defaultValue={companyId}
+            className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs"
+          >
             {firmalar.map((f) => (
               <option key={f.id} value={f.id}>
                 {f.name}
               </option>
             ))}
           </select>
-        </Field>
-        <Field label="Vardiya">
-          <select name="vardiya" defaultValue={filter.shift ?? ""} className={inputClass}>
-            <option value="">Hepsi</option>
-            {shifts.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </Field>
-      </FilterBar>
+          <Button type="submit" variant="ghost">
+            Değiştir
+          </Button>
+        </form>
+      </Card>
 
-      <Table head={[t("asset"), t("customer"), "Vardiya", "Geliş", "Planlanan", "Durum", "Not", ""]}>
+      {shifts.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {shifts.map((s) => (
+            <Link
+              key={s.id}
+              href={link({ vardiya: s.name })}
+              className={`rounded-lg border px-3 py-1.5 text-xs ${
+                s.name === shift
+                  ? "border-neutral-900 bg-neutral-900 text-white"
+                  : "border-neutral-300 hover:bg-neutral-50"
+              }`}
+            >
+              {s.name} <span className="opacity-60">{s.expectedAt}</span>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <Card className="border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+          Bu {t("customer").toLocaleLowerCase("tr-TR")} için vardiya tanımlı değil; gecikme
+          hesaplanamıyor.{" "}
+          <Link href="/operasyon/vardiyalar" className="underline">
+            Vardiya tanımla
+          </Link>
+        </Card>
+      )}
+
+      {canWrite ? <PlateEntry rows={rows} companyId={companyId} date={date} shift={shift} /> : null}
+
+      {canBulk && pending.length > 0 ? (
+        <form action={markAllArrivalsAction}>
+          <input type="hidden" name="companyId" value={companyId} />
+          <input type="hidden" name="date" value={date} />
+          <input type="hidden" name="shift" value={shift} />
+          {pending.map((r) => (
+            <input key={r.vehicleId} type="hidden" name="vehicleIds" value={r.vehicleId} />
+          ))}
+          <Button type="submit" variant="ghost">
+            Tümü geldi ({pending.length})
+          </Button>
+        </form>
+      ) : null}
+
+      <Table
+        head={["Sıra", t("asset"), t("staff"), "Planlanan", "Geliş", "Durum", "Yolcu", ""]}
+      >
         {rows.length === 0 ? (
-          <EmptyRow colSpan={8} text="Bu tarihte geliş kaydı yok." />
+          <EmptyRow
+            colSpan={8}
+            text={`Bu ${t("customer").toLocaleLowerCase("tr-TR")} için aktif araç yok.`}
+          />
         ) : (
-          rows.map((r) => {
-            const delay = delayMinutes(r.plannedAt, r.arrivedAt);
-            return (
-              <tr key={r.id} className="hover:bg-neutral-50">
-                <Td className="font-medium">{r.plate}</Td>
-                <Td className="text-neutral-500">{r.companyName ?? "—"}</Td>
-                <Td>{r.shift}</Td>
-                <Td className="font-medium">{r.arrivedAt}</Td>
-                <Td className="text-neutral-500">{r.plannedAt ?? "—"}</Td>
-                <Td>
-                  {delay === null ? (
-                    <span className="text-neutral-400">—</span>
-                  ) : delay > 0 ? (
-                    <Badge tone="bad">{delay} dk geç</Badge>
-                  ) : (
-                    <Badge tone="ok">zamanında</Badge>
-                  )}
-                </Td>
-                <Td className="max-w-xs truncate text-neutral-500">{r.note ?? "—"}</Td>
-                <Td>
-                  {canDelete ? (
-                    <form action={deleteArrivalAction} className="flex justify-end">
-                      <input type="hidden" name="id" value={r.id} />
-                      <Button type="submit" variant="danger">
-                        Sil
-                      </Button>
-                    </form>
-                  ) : null}
-                </Td>
-              </tr>
-            );
-          })
+          rows.map((row) => (
+            <ArrivalRow
+              key={row.vehicleId}
+              row={row}
+              companyId={companyId}
+              date={date}
+              shift={shift}
+              canWrite={canWrite}
+            />
+          ))
         )}
       </Table>
+
+      {rows.length > 0 ? (
+        <p className="text-xs text-neutral-500">
+          Liste firmanın aktif araçlarıdır. Sarı satırlar henüz gelmemiş araçları gösterir.{" "}
+          <Badge tone="ok">Zamanında</Badge> eşiği vardiyanın gecikme toleransıdır.
+        </p>
+      ) : null}
     </div>
   );
 }

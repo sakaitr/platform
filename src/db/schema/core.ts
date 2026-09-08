@@ -68,6 +68,8 @@ export const vehicles = pgTable(
     capacity: integer("capacity"),
     vehicleType: varchar("vehicle_type", { length: 40 }),
     status: vehicleStatusEnum("status").notNull().default("aktif"),
+    /** Giriş kontrol tahtasındaki sıra — kapıdaki görevlinin beklediği düzen. */
+    sortOrder: integer("sort_order").notNull().default(0),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

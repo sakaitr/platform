@@ -82,6 +82,10 @@ export const vehicleArrivals = pgTable(
     arrivedAt: varchar("arrived_at", { length: 5 }).notNull(),
     /** Planlanan saat; doluysa gecikme hesaplanır. */
     plannedAt: varchar("planned_at", { length: 5 }),
+    routeId: uuid("route_id"),
+    /** Beklenen ve sayılan yolcu — eksik binen tespiti için. */
+    expectedPassengers: integer("expected_passengers"),
+    actualPassengers: integer("actual_passengers"),
     latitude: varchar("latitude", { length: 30 }),
     longitude: varchar("longitude", { length: 30 }),
     note: text("note"),

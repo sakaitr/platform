@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm";
 import {
   companies,
+  companyShifts,
   drivers,
   openRoutes,
   routeAssignments,
@@ -165,4 +166,28 @@ export async function getOpenRoute(tenantId: string, id: string) {
     tx.select().from(openRoutes).where(and(eq(openRoutes.tenantId, tenantId), eq(openRoutes.id, id))),
   );
   return rows[0] ?? null;
+}
+
+/** Tüm firmaların vardiyaları — yönetim sayfası için. */
+export async function listAllShifts(tenantId: string, scope: string[] | null) {
+  const parts: SQL[] = [eq(companyShifts.tenantId, tenantId)];
+  if (scope !== null) {
+    parts.push(scope.length > 0 ? inArray(companyShifts.companyId, scope) : eq(companyShifts.id, companyShifts.tenantId));
+  }
+  return withTenant(tenantId, (tx) =>
+    tx
+      .select({
+        id: companyShifts.id,
+        name: companyShifts.name,
+        expectedAt: companyShifts.expectedAt,
+        toleranceEarly: companyShifts.toleranceEarly,
+        toleranceLate: companyShifts.toleranceLate,
+        isActive: companyShifts.isActive,
+        companyName: companies.name,
+      })
+      .from(companyShifts)
+      .innerJoin(companies, eq(companies.id, companyShifts.companyId))
+      .where(and(...parts))
+      .orderBy(asc(companies.name), asc(companyShifts.expectedAt)),
+  );
 }

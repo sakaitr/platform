@@ -2,13 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { and, eq, isNull } from "drizzle-orm";
-import { openRoutes, routeAssignments, routePassengers, routes } from "@/db/schema";
+import { companyShifts, openRoutes, routeAssignments, routePassengers, routes } from "@/db/schema";
 import { withTenant } from "@/db/tenant";
 import { requireModule } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { isInScope } from "@/lib/scope";
 import { istanbulDayKey, shiftDay } from "@/lib/time";
-import { OpenRouteSchema, RouteAssignmentSchema, RouteSchema } from "../validators";
+import {
+  CompanyShiftSchema,
+  OpenRouteSchema,
+  RouteAssignmentSchema,
+  RouteSchema,
+} from "../validators";
 
 export type ActionState = { error: string } | { ok: string } | null;
 
@@ -203,4 +208,60 @@ export async function deleteOpenRouteAction(formData: FormData): Promise<void> {
     tx.delete(openRoutes).where(and(eq(openRoutes.tenantId, session.tenantId), eq(openRoutes.id, id))),
   );
   revalidatePath("/operasyon/acik-guzergahlar");
+}
+
+/* ---------- Firma vardiyaları ---------- */
+
+/**
+ * Vardiya, giriş kontroldeki planlanan saatin ve gecikme eşiğinin kaynağı.
+ * Tanımlı değilse gecikme hesaplanamaz.
+ */
+export async function saveShiftAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const isUpdate = Boolean(formData.get("id"));
+  const session = await requireModule("arrivals:update", "operasyon");
+
+  const parsed = CompanyShiftSchema.safeParse({
+    ...read(formData, ["companyId", "name", "expectedAt", "toleranceEarly", "toleranceLate"]),
+    id: formData.get("id") || undefined,
+    isActive: formData.get("isActive") === "on",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]!.message };
+  const { id, ...values } = parsed.data;
+
+  if (!isInScope(session.scope, values.companyId)) {
+    return { error: "Seçilen firma kapsamınızda değil." };
+  }
+
+  try {
+    await withTenant(session.tenantId, async (tx) => {
+      if (isUpdate && id) {
+        await tx
+          .update(companyShifts)
+          .set(values)
+          .where(and(eq(companyShifts.tenantId, session.tenantId), eq(companyShifts.id, id)));
+      } else {
+        await tx.insert(companyShifts).values({ ...values, tenantId: session.tenantId });
+      }
+    });
+  } catch (error) {
+    if ((error as { code?: string }).code === "23505") {
+      return { error: "Bu firmada aynı adlı vardiya zaten var." };
+    }
+    throw error;
+  }
+
+  revalidatePath("/operasyon/vardiyalar");
+  return { ok: isUpdate ? "Vardiya güncellendi." : "Vardiya eklendi." };
+}
+
+export async function deleteShiftAction(formData: FormData): Promise<void> {
+  const session = await requireModule("arrivals:update", "operasyon");
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await withTenant(session.tenantId, (tx) =>
+    tx
+      .delete(companyShifts)
+      .where(and(eq(companyShifts.tenantId, session.tenantId), eq(companyShifts.id, id))),
+  );
+  revalidatePath("/operasyon/vardiyalar");
 }

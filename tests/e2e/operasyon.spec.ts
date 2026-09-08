@@ -61,20 +61,91 @@ test("yolcu eklenir", async ({ page }) => {
   await expect(page.getByText("E2E Test Yolcu")).toBeVisible();
 });
 
-test("geliş kaydedilir ve gecikme rozeti çıkar", async ({ page }) => {
+// Testler aynı kiracıyı paylaşıyor; her biri kendi gününde çalışsın ki
+// birbirinin işaretlerini görmesin.
+const GUN = {
+  tahta: "2026-03-02",
+  plaka: "2026-03-03",
+  eslesmeyen: "2026-03-04",
+  vardiya: "2026-03-05",
+  toplu: "2026-03-06",
+};
+
+test("giriş kontrol tahtası firmanın tüm araçlarını bekleyen olarak gösterir", async ({ page }) => {
   await login(page, "kisitli-owner@e2e.test");
-  await page.goto("/operasyon/giris-kontrol");
-  await page.getByRole("button", { name: "Geliş Kaydet" }).click();
+  await page.goto(`/operasyon/giris-kontrol?tarih=${GUN.tahta}`);
 
-  // Filtre çubuğunda da "Vardiya" var — kayıt formuna daralt.
+  // Sayfa boş başlamaz: firmanın aktif araçları beklenen liste olarak gelir
+  const row = page.getByRole("row").filter({ hasText: "34ABC01" });
+  await expect(row.getByText("Bekleniyor")).toBeVisible();
+  await expect(page.getByRole("main").getByText("Beklenen araç")).toBeVisible();
+});
+
+test("plaka son ekiyle hızlı giriş yapılır", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+  await page.goto(`/operasyon/giris-kontrol?tarih=${GUN.plaka}`);
+
+  await page.getByPlaceholder("Plakanın son hanelerini yazın").fill("01");
+  await page.getByRole("button", { name: "34ABC01 · Geldi" }).click();
+  await page.waitForLoadState("networkidle");
+
+  const row = page.getByRole("row").filter({ hasText: "34ABC01" });
+  await expect(row.getByRole("button", { name: "Geri al" })).toBeVisible();
+});
+
+test("eşleşmeyen plaka uyarı verir", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+  await page.goto(`/operasyon/giris-kontrol?tarih=${GUN.eslesmeyen}`);
+  await page.getByPlaceholder("Plakanın son hanelerini yazın").fill("999");
+  await expect(page.getByText(/999 ile biten araç yok/)).toBeVisible();
+});
+
+test("vardiya tanımlanınca gecikme hesaplanır", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+
+  await page.goto("/operasyon/vardiyalar");
+  await page.getByRole("button", { name: "Yeni Vardiya" }).click();
   const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
-  await form.getByLabel("Araç").selectOption({ label: "34ABC01" });
-  await form.getByLabel("Vardiya").fill("sabah");
-  await form.getByLabel("Geliş Saati").fill("08:12");
-  await form.getByLabel("Planlanan Saat").fill("08:00");
+  await form.getByLabel("Firma").selectOption({ label: "Alfa Sanayi" });
+  await form.getByLabel("Vardiya Adı").fill("sabah");
+  await form.getByLabel("Beklenen Saat").fill("08:00");
+  await form.getByLabel("Gecikme Toleransı (dk)").fill("10");
   await form.getByRole("button", { name: "Kaydet" }).click();
+  await expect(form.getByText("Vardiya eklendi.")).toBeVisible();
 
-  await expect(page.getByText("12 dk geç")).toBeVisible();
+  await page.goto(`/operasyon/giris-kontrol?tarih=${GUN.vardiya}&vardiya=sabah`);
+  // Vardiya sekmesi ve planlanan saat görünmeli
+  await expect(page.getByRole("link", { name: /sabah 08:00/ })).toBeVisible();
+
+  const row = page.getByRole("row").filter({ hasText: "34ABC01" });
+  await row.getByRole("button", { name: "Geldi" }).click();
+  await page.waitForLoadState("networkidle");
+  await page.goto(`/operasyon/giris-kontrol?tarih=${GUN.vardiya}&vardiya=sabah`);
+
+  // Saati elle geciktir, durum gecikmeliye dönsün
+  const marked = page.getByRole("row").filter({ hasText: "34ABC01" });
+  await marked.getByRole("button", { name: "Düzenle" }).click();
+  await marked.locator('input[type="time"]').fill("08:45");
+  await marked.getByRole("button", { name: "Kaydet" }).click();
+  await page.waitForLoadState("networkidle");
+
+  await expect(
+    page.getByRole("row").filter({ hasText: "34ABC01" }).getByText(/Gecikmeli · 45 dk/),
+  ).toBeVisible();
+});
+
+test("tümü geldi bekleyenleri toplu işaretler", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+  await page.goto(`/operasyon/giris-kontrol?tarih=${GUN.toplu}`);
+
+  const bulk = page.getByRole("button", { name: /Tümü geldi/ });
+  await expect(bulk).toBeVisible();
+  await bulk.click();
+  await page.waitForLoadState("networkidle");
+  await page.goto(`/operasyon/giris-kontrol?tarih=${GUN.toplu}`);
+
+  await expect(page.getByRole("button", { name: /Tümü geldi/ })).toHaveCount(0);
+  await expect(page.getByRole("main").getByText("Bekleyen")).toBeVisible();
 });
 
 test("ziyaretçi girişi ve çıkışı", async ({ page }) => {
