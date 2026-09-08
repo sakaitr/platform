@@ -1,7 +1,16 @@
 import "dotenv/config";
 import { inArray } from "drizzle-orm";
 import { dbAdmin } from "@/db/admin";
-import { companies, passengers, tenants, users, vehicles } from "@/db/schema";
+import {
+  companies,
+  passengers,
+  portalUserCompanies,
+  portalUsers,
+  tenants,
+  tickets,
+  users,
+  vehicles,
+} from "@/db/schema";
 import { hashPassword } from "@/lib/auth";
 import { createRole } from "@/lib/rbac";
 import { provisionTenant } from "@/lib/sector/install";
@@ -69,6 +78,34 @@ async function main(): Promise<void> {
     passwordHash: await hashPassword("E2eTest1234!"),
     roleId: viewerRoleId,
   });
+
+  // Portal kullanıcısı yalnız Alfa'ya bağlı — izolasyon testinin dayanağı
+  const [portalUser] = await dbAdmin
+    .insert(portalUsers)
+    .values({
+      tenantId,
+      email: "portal@e2e.test",
+      fullName: "Portal Musteri",
+      passwordHash: await hashPassword("E2eTest1234!"),
+    })
+    .returning();
+  await dbAdmin
+    .insert(portalUserCompanies)
+    .values({ tenantId, portalUserId: portalUser!.id, companyId: alfa!.id });
+
+  // Firmasız portal hesabı — erişim yok sayfasını doğrular
+  await dbAdmin.insert(portalUsers).values({
+    tenantId,
+    email: "portal-bos@e2e.test",
+    fullName: "Bagsiz Musteri",
+    passwordHash: await hashPassword("E2eTest1234!"),
+  });
+
+  // İki firmanın da talebi var; portal yalnız Alfa'nınkini görmeli
+  await dbAdmin.insert(tickets).values([
+    { tenantId, ticketNo: "SEED-ALFA", title: "Alfa talebi", companyId: alfa!.id },
+    { tenantId, ticketNo: "SEED-BETA", title: "Beta talebi", companyId: beta!.id },
+  ]);
 
   console.log("E2E tenants provisioned");
   process.exit(0);
