@@ -9,6 +9,10 @@ export default defineConfig({
   // Her koşu temiz veriyle başlar. Testler kayıt oluşturuyor; artık veri
   // ikinci koşuda tekillik hatası veriyordu.
   globalSetup: "./tests/e2e/global-setup.ts",
+  // Tüm testler aynı veritabanını paylaşıyor. Paralel çalışınca birbirlerinin
+  // durumunu bozuyorlar (bir test modülü kapatırken diğeri o modülü kullanıyor).
+  workers: 1,
+  fullyParallel: false,
   expect: { timeout: 15_000 },
   use: { baseURL: "http://localhost:3100" },
   webServer: {
