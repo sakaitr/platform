@@ -70,3 +70,71 @@ test("yakıt dolumunda tüketim km farkından hesaplanır", async ({ page }) => 
   // 60 L / 500 km → 12 L/100km
   await expect(row.locator("td").nth(5)).toHaveText("12");
 });
+
+test("araç detayı belgeleri ve firma atamalarını gösterir", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+  await page.goto("/filo/araclar");
+
+  await page.getByRole("link", { name: "34ABC01" }).click();
+  await page.waitForURL(/\/filo\/araclar\/[0-9a-f-]{36}$/);
+  const detailUrl = page.url();
+
+  await expect(page.getByRole("heading", { name: "34ABC01" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Firma Atamaları" })).toBeVisible();
+
+  // Ek firma ata
+  await page.getByRole("button", { name: "Firma Ekle" }).click();
+  await page.waitForLoadState("networkidle");
+  await page.goto(detailUrl);
+  await expect(page.getByText("Beta Tekstil")).toBeVisible();
+
+  // Belge ekle
+  await page.getByRole("button", { name: "Belge Ekle" }).click();
+  const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+  await form.getByLabel("Belge Tipi").fill("K belgesi");
+  await form.getByLabel("Bitiş").fill("2027-06-30");
+  await form.getByRole("button", { name: "Kaydet" }).click();
+  await page.waitForLoadState("networkidle");
+
+  await page.goto(detailUrl);
+  await expect(page.getByRole("row").filter({ hasText: "K belgesi" })).toBeVisible();
+});
+
+test("sürücü detayı belge ve sicil bölümlerini gösterir", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+
+  // Önce sürücü oluştur
+  await page.goto("/filo/suruculer");
+  await page.getByRole("button", { name: /Yeni Sürücü/ }).click();
+  let form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+  await form.getByLabel("Ad Soyad").fill("E2E Şoför Detay");
+  await form.getByLabel("Ehliyet Sınıfı").fill("D");
+  await form.getByRole("button", { name: "Kaydet" }).click();
+  await page.waitForLoadState("networkidle");
+
+  await page.goto("/filo/suruculer");
+  await page.getByRole("link", { name: "E2E Şoför Detay" }).click();
+  await page.waitForURL(/\/filo\/suruculer\/[0-9a-f-]{36}$/);
+  const url = page.url();
+
+  await expect(page.getByRole("heading", { name: "Sürücü Belgeleri" })).toBeVisible();
+  await expect(page.getByText("Sürücü belgesi henüz eklenmemiş")).toBeVisible();
+
+  await page.getByRole("button", { name: "Belge Ekle" }).click();
+  form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+  await form.getByLabel("Belge Tipi").fill("SRC");
+  await form.getByLabel("Bitiş").fill("2029-01-01");
+  await form.getByRole("button", { name: "Kaydet" }).click();
+  await page.waitForLoadState("networkidle");
+
+  await page.goto(url);
+  await expect(page.getByRole("row").filter({ hasText: "SRC" })).toBeVisible();
+});
+
+test("araç listesi kapasiteye göre sıralanabilir", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+  await page.goto("/filo/araclar?sirala=kapasite");
+  const plates = await page.getByRole("row").locator("td:first-child").allInnerTexts();
+  // 34ABC01 kapasite 27, 34XYZ02 kapasite 16 → büyükten küçüğe
+  expect(plates[0]).toContain("34ABC01");
+});

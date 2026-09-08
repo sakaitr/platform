@@ -40,6 +40,7 @@ export const VehicleSchema = z.object({
   modelYear: optionalInt,
   capacity: optionalInt,
   vehicleType: optionalText(40),
+  titleHolder: optionalText(200),
   status: z.enum(["aktif", "bakimda", "pasif"]).catch("aktif"),
   notes: optionalText(1000),
 });

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Badge,
   Button,
@@ -32,6 +33,7 @@ export default async function AraclarPage({ searchParams }: { searchParams: Sear
     q: one(params, "q"),
     companyId: one(params, "firma"),
     status: one(params, "durum"),
+    sirala: one(params, "sirala"),
     page: Number(one(params, "sayfa") ?? 1),
     scope: session.scope,
   };
@@ -55,6 +57,7 @@ export default async function AraclarPage({ searchParams }: { searchParams: Sear
     { name: "modelYear", label: "Model Yılı", type: "number" },
     { name: "capacity", label: "Koltuk Kapasitesi", type: "number" },
     { name: "vehicleType", label: "Araç Tipi", type: "text", hint: "Otobüs, minibüs, binek…" },
+    { name: "titleHolder", label: "Ruhsat Sahibi", type: "text" },
     { name: "status", label: "Durum", type: "select", options: STATUS },
     { name: "notes", label: "Not", type: "textarea", wide: true },
   ];
@@ -104,20 +107,32 @@ export default async function AraclarPage({ searchParams }: { searchParams: Sear
             ))}
           </select>
         </Field>
+        <Field label="Sırala">
+          <select name="sirala" defaultValue={filter.sirala ?? "plaka"} className={inputClass}>
+            <option value="plaka">Plakaya göre</option>
+            <option value="firma">Firmaya göre</option>
+            <option value="marka">Markaya göre</option>
+            <option value="kapasite">Kapasiteye göre</option>
+          </select>
+        </Field>
       </FilterBar>
 
-      <Table head={["Plaka", t("customer"), "Marka / Model", "Yıl", "Kapasite", "Tip", "Durum", ""]}>
+      <Table head={["Plaka", t("customer"), "Marka / Model", "Yıl", "Kapasite", "Ruhsat Sahibi", "Durum", ""]}>
         {rows.length === 0 ? (
           <EmptyRow colSpan={8} />
         ) : (
           rows.map((v) => (
             <tr key={v.id} className="hover:bg-neutral-50">
-              <Td className="font-medium">{v.plate}</Td>
+              <Td className="font-medium">
+                <Link href={`/filo/araclar/${v.id}`} className="hover:underline">
+                  {v.plate}
+                </Link>
+              </Td>
               <Td className="text-neutral-500">{v.companyName ?? "—"}</Td>
               <Td>{[v.brand, v.model].filter(Boolean).join(" ") || "—"}</Td>
               <Td className="text-neutral-500">{v.modelYear ?? "—"}</Td>
               <Td className="text-neutral-500">{v.capacity ?? "—"}</Td>
-              <Td className="text-neutral-500">{v.vehicleType ?? "—"}</Td>
+              <Td className="text-neutral-500">{v.titleHolder ?? "—"}</Td>
               <Td>
                 <Badge tone={STATUS_TONE[v.status]}>
                   {STATUS.find((s) => s.value === v.status)?.label ?? v.status}
@@ -152,7 +167,7 @@ export default async function AraclarPage({ searchParams }: { searchParams: Sear
         basePath="/filo/araclar"
         page={page}
         pageCount={pageCount}
-        query={{ q: filter.q, firma: filter.companyId, durum: filter.status }}
+        query={{ q: filter.q, firma: filter.companyId, durum: filter.status, sirala: filter.sirala }}
       />
     </div>
   );

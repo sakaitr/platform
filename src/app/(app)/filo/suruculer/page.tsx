@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Badge,
   Button,
@@ -101,7 +102,11 @@ export default async function SurucülerPage({ searchParams }: { searchParams: S
         ) : (
           rows.map((d) => (
             <tr key={d.id} className="hover:bg-neutral-50">
-              <Td className="font-medium">{d.fullName}</Td>
+              <Td className="font-medium">
+                <Link href={`/filo/suruculer/${d.id}`} className="hover:underline">
+                  {d.fullName}
+                </Link>
+              </Td>
               <Td className="text-neutral-500">{d.companyName ?? "—"}</Td>
               <Td className="text-neutral-500">{d.phone ?? "—"}</Td>
               <Td className="text-neutral-500">{d.licenseClass ?? "—"}</Td>

@@ -1,5 +1,15 @@
-import { and, asc, count, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm";
-import { companies, drivers, fuelCards, vehicles } from "@/db/schema";
+import { and, asc, count, desc, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm";
+import {
+  companies,
+  driverDocuments,
+  drivers,
+  fuelCards,
+  inspections,
+  vehicleCompanies,
+  vehicleDocuments,
+  vehicleMaintenance,
+  vehicles,
+} from "@/db/schema";
 import { withTenant } from "@/db/tenant";
 
 export const PAGE_SIZE = 50;
@@ -18,9 +28,24 @@ export type VehicleFilter = {
   q?: string;
   companyId?: string;
   status?: string;
+  /** plaka | firma | marka | kapasite */
+  sirala?: string;
   page?: number;
   scope: string[] | null;
 };
+
+function vehicleOrder(f: VehicleFilter) {
+  switch (f.sirala) {
+    case "firma":
+      return [asc(companies.name), asc(vehicles.plate)];
+    case "marka":
+      return [asc(vehicles.brand), asc(vehicles.model)];
+    case "kapasite":
+      return [desc(vehicles.capacity), asc(vehicles.plate)];
+    default:
+      return [asc(vehicles.plate)];
+  }
+}
 
 export async function listVehicles(tenantId: string, f: VehicleFilter) {
   const parts: SQL[] = [eq(vehicles.tenantId, tenantId)];
@@ -48,11 +73,12 @@ export async function listVehicles(tenantId: string, f: VehicleFilter) {
         status: vehicles.status,
         companyId: vehicles.companyId,
         companyName: companies.name,
+        titleHolder: vehicles.titleHolder,
       })
       .from(vehicles)
       .leftJoin(companies, eq(companies.id, vehicles.companyId))
       .where(where)
-      .orderBy(asc(vehicles.plate))
+      .orderBy(...vehicleOrder(f))
       .limit(PAGE_SIZE)
       .offset((page - 1) * PAGE_SIZE);
     const [total] = await tx.select({ value: count() }).from(vehicles).where(where);
@@ -152,4 +178,95 @@ export async function getFuelCard(tenantId: string, id: string) {
     tx.select().from(fuelCards).where(and(eq(fuelCards.tenantId, tenantId), eq(fuelCards.id, id))),
   );
   return rows[0] ?? null;
+}
+
+/** Aracın ek firma atamaları. */
+export async function vehicleCompanyNames(tenantId: string, vehicleId: string) {
+  return withTenant(tenantId, (tx) =>
+    tx
+      .select({ id: vehicleCompanies.id, companyId: companies.id, name: companies.name })
+      .from(vehicleCompanies)
+      .innerJoin(companies, eq(companies.id, vehicleCompanies.companyId))
+      .where(
+        and(eq(vehicleCompanies.tenantId, tenantId), eq(vehicleCompanies.vehicleId, vehicleId)),
+      )
+      .orderBy(asc(companies.name)),
+  );
+}
+
+/** Araç detay sayfası için tek seferde toplanan özet. */
+export async function vehicleDetail(tenantId: string, vehicleId: string) {
+  return withTenant(tenantId, async (tx) => {
+    const [vehicle] = await tx
+      .select({
+        id: vehicles.id,
+        plate: vehicles.plate,
+        brand: vehicles.brand,
+        model: vehicles.model,
+        modelYear: vehicles.modelYear,
+        capacity: vehicles.capacity,
+        vehicleType: vehicles.vehicleType,
+        titleHolder: vehicles.titleHolder,
+        status: vehicles.status,
+        notes: vehicles.notes,
+        sortOrder: vehicles.sortOrder,
+        companyId: vehicles.companyId,
+        companyName: companies.name,
+      })
+      .from(vehicles)
+      .leftJoin(companies, eq(companies.id, vehicles.companyId))
+      .where(and(eq(vehicles.tenantId, tenantId), eq(vehicles.id, vehicleId)));
+    if (!vehicle) return null;
+
+    const documents = await tx
+      .select()
+      .from(vehicleDocuments)
+      .where(
+        and(eq(vehicleDocuments.tenantId, tenantId), eq(vehicleDocuments.vehicleId, vehicleId)),
+      )
+      .orderBy(asc(vehicleDocuments.expiresOn));
+
+    const maintenance = await tx
+      .select({
+        id: vehicleMaintenance.id,
+        maintenanceDate: vehicleMaintenance.maintenanceDate,
+        type: vehicleMaintenance.type,
+        kmAtService: vehicleMaintenance.kmAtService,
+        cost: vehicleMaintenance.cost,
+        status: vehicleMaintenance.status,
+      })
+      .from(vehicleMaintenance)
+      .where(
+        and(
+          eq(vehicleMaintenance.tenantId, tenantId),
+          eq(vehicleMaintenance.vehicleId, vehicleId),
+        ),
+      )
+      .orderBy(desc(vehicleMaintenance.maintenanceDate))
+      .limit(10);
+
+    const inspections_ = await tx
+      .select({
+        id: inspections.id,
+        inspectionDate: inspections.inspectionDate,
+        type: inspections.type,
+        result: inspections.result,
+      })
+      .from(inspections)
+      .where(and(eq(inspections.tenantId, tenantId), eq(inspections.vehicleId, vehicleId)))
+      .orderBy(desc(inspections.inspectionDate))
+      .limit(10);
+
+    return { vehicle, documents, maintenance, inspections: inspections_ };
+  });
+}
+
+export async function listDriverDocuments(tenantId: string, driverId: string) {
+  return withTenant(tenantId, (tx) =>
+    tx
+      .select()
+      .from(driverDocuments)
+      .where(and(eq(driverDocuments.tenantId, tenantId), eq(driverDocuments.driverId, driverId)))
+      .orderBy(asc(driverDocuments.expiresOn)),
+  );
 }

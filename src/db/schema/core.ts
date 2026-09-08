@@ -67,6 +67,8 @@ export const vehicles = pgTable(
     /** Koltuk kapasitesi — güzergah atamasında kullanılır. */
     capacity: integer("capacity"),
     vehicleType: varchar("vehicle_type", { length: 40 }),
+    /** Ruhsat sahibi — araç işletenden farklı olabilir. */
+    titleHolder: varchar("title_holder", { length: 200 }),
     status: vehicleStatusEnum("status").notNull().default("aktif"),
     /** Giriş kontrol tahtasındaki sıra — kapıdaki görevlinin beklediği düzen. */
     sortOrder: integer("sort_order").notNull().default(0),
@@ -113,3 +115,56 @@ export type Vehicle = typeof vehicles.$inferSelect;
 export type NewVehicle = typeof vehicles.$inferInsert;
 export type Driver = typeof drivers.$inferSelect;
 export type NewDriver = typeof drivers.$inferInsert;
+
+/**
+ * Araç birden çok firmaya hizmet edebilir. `vehicles.company_id` aracın
+ * bağlı olduğu ana firma; bu tablo ek atamaları tutar.
+ */
+export const vehicleCompanies = pgTable(
+  "vehicle_companies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    vehicleId: uuid("vehicle_id")
+      .notNull()
+      .references(() => vehicles.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("vehicle_companies_tenant_idx").on(t.tenantId),
+    uniq: uniqueIndex("vehicle_companies_uniq").on(t.vehicleId, t.companyId),
+  }),
+);
+
+/** Sürücü belgesi — ehliyet, SRC, psikoteknik, sağlık raporu. */
+export const driverDocuments = pgTable(
+  "driver_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    driverId: uuid("driver_id")
+      .notNull()
+      .references(() => drivers.id, { onDelete: "cascade" }),
+    docType: varchar("doc_type", { length: 50 }).notNull(),
+    label: varchar("label", { length: 200 }),
+    issuedOn: date("issued_on"),
+    expiresOn: date("expires_on"),
+    fileUrl: text("file_url"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("driver_documents_tenant_idx").on(t.tenantId),
+    expiryIdx: index("driver_documents_expiry_idx").on(t.tenantId, t.expiresOn),
+  }),
+);
+
+export type VehicleCompany = typeof vehicleCompanies.$inferSelect;
+export type DriverDocument = typeof driverDocuments.$inferSelect;

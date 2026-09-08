@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
-import { drivers, fuelCards, vehicles } from "@/db/schema";
+import { driverDocuments, drivers, fuelCards, vehicleCompanies, vehicles } from "@/db/schema";
 import { withTenant } from "@/db/tenant";
 import { requireModule } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
@@ -29,6 +29,7 @@ export async function saveVehicleAction(_prev: ActionState, formData: FormData):
     modelYear: formData.get("modelYear") ?? "",
     capacity: formData.get("capacity") ?? "",
     vehicleType: formData.get("vehicleType") ?? "",
+    titleHolder: formData.get("titleHolder") ?? "",
     status: formData.get("status") ?? "aktif",
     notes: formData.get("notes") ?? "",
   });
@@ -199,4 +200,75 @@ export async function deleteFuelCardAction(formData: FormData): Promise<void> {
     tx.delete(fuelCards).where(and(eq(fuelCards.tenantId, session.tenantId), eq(fuelCards.id, id))),
   );
   revalidatePath("/filo/yakit-kartlari");
+}
+
+/** Araca ek firma atar — bir araç birden çok firmaya hizmet edebilir. */
+export async function addVehicleCompanyAction(formData: FormData): Promise<void> {
+  const session = await requireModule("araclar:update", "filo");
+  const vehicleId = String(formData.get("vehicleId") ?? "");
+  const companyId = String(formData.get("companyId") ?? "");
+  if (!vehicleId || !companyId) return;
+  if (!isInScope(session.scope, companyId)) return;
+
+  await withTenant(session.tenantId, (tx) =>
+    tx
+      .insert(vehicleCompanies)
+      .values({ tenantId: session.tenantId, vehicleId, companyId })
+      .onConflictDoNothing(),
+  );
+  revalidatePath(`/filo/araclar/${vehicleId}`);
+}
+
+export async function removeVehicleCompanyAction(formData: FormData): Promise<void> {
+  const session = await requireModule("araclar:update", "filo");
+  const id = String(formData.get("id") ?? "");
+  const vehicleId = String(formData.get("vehicleId") ?? "");
+  if (!id) return;
+  await withTenant(session.tenantId, (tx) =>
+    tx
+      .delete(vehicleCompanies)
+      .where(and(eq(vehicleCompanies.tenantId, session.tenantId), eq(vehicleCompanies.id, id))),
+  );
+  revalidatePath(`/filo/araclar/${vehicleId}`);
+}
+
+/** Sürücü belgesi ekler — ehliyet, SRC, psikoteknik. */
+export async function saveDriverDocumentAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireModule("suruculer:update", "filo");
+
+  const driverId = String(formData.get("driverId") ?? "");
+  const docType = String(formData.get("docType") ?? "").trim();
+  if (!driverId || docType.length === 0) return { error: "Belge tipi gerekli." };
+
+  const day = (value: FormDataEntryValue | null): string | null => {
+    const raw = String(value ?? "").trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
+  };
+
+  await withTenant(session.tenantId, (tx) =>
+    tx.insert(driverDocuments).values({
+      tenantId: session.tenantId,
+      driverId,
+      docType,
+      label: String(formData.get("label") ?? "").trim() || null,
+      issuedOn: day(formData.get("issuedOn")),
+      expiresOn: day(formData.get("expiresOn")),
+      notes: String(formData.get("notes") ?? "").trim() || null,
+    }),
+  );
+  revalidatePath(`/filo/suruculer/${driverId}`);
+  return { ok: "Belge eklendi." };
+}
+
+export async function deleteDriverDocumentAction(formData: FormData): Promise<void> {
+  const session = await requireModule("suruculer:update", "filo");
+  const id = String(formData.get("id") ?? "");
+  const driverId = String(formData.get("driverId") ?? "");
+  if (!id) return;
+  await withTenant(session.tenantId, (tx) =>
+    tx
+      .delete(driverDocuments)
+      .where(and(eq(driverDocuments.tenantId, session.tenantId), eq(driverDocuments.id, id))),
+  );
+  revalidatePath(`/filo/suruculer/${driverId}`);
 }

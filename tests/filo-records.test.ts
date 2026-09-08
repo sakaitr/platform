@@ -146,3 +146,85 @@ describe("jenerik filo listeleme", () => {
     expect(total).toBe(0);
   });
 });
+
+describe("araç detayı", () => {
+  beforeEach(async () => {
+    await resetDatabase();
+  });
+
+  it("araç birden çok firmaya atanabilir", async () => {
+    const { tenantId, alfa, beta, v1 } = await seed();
+    const { vehicleCompanies } = await import("@/db/schema");
+    const { vehicleCompanyNames } = await import("@/modules/filo/queries");
+    await dbAdmin.insert(vehicleCompanies).values([
+      { tenantId, vehicleId: v1.id, companyId: beta.id },
+      { tenantId, vehicleId: v1.id, companyId: alfa.id },
+    ]);
+    const rows = await vehicleCompanyNames(tenantId, v1.id);
+    expect(rows.map((r) => r.name)).toEqual(["Alfa", "Beta"]);
+  });
+
+  it("aynı firma araca iki kez atanamaz", async () => {
+    const { tenantId, beta, v1 } = await seed();
+    const { vehicleCompanies } = await import("@/db/schema");
+    await dbAdmin.insert(vehicleCompanies).values({ tenantId, vehicleId: v1.id, companyId: beta.id });
+    await expect(
+      dbAdmin.insert(vehicleCompanies).values({ tenantId, vehicleId: v1.id, companyId: beta.id }),
+    ).rejects.toThrow();
+  });
+
+  it("detay belge, bakım ve denetimi birlikte getirir", async () => {
+    const { tenantId, v1 } = await seed();
+    const { vehicleDetail } = await import("@/modules/filo/queries");
+    const { inspections, vehicleDocuments, vehicleMaintenance: vm } = await import("@/db/schema");
+
+    await dbAdmin.insert(vehicleDocuments).values({
+      tenantId,
+      vehicleId: v1.id,
+      docType: "muayene",
+      expiresOn: "2027-01-01",
+    });
+    await dbAdmin.insert(vm).values({
+      tenantId,
+      vehicleId: v1.id,
+      type: "periyodik",
+      maintenanceDate: "2026-09-01",
+    });
+    await dbAdmin.insert(inspections).values({
+      tenantId,
+      vehicleId: v1.id,
+      inspectionDate: "2026-09-02",
+      type: "rutin",
+      result: "gecti",
+    });
+
+    const detail = await vehicleDetail(tenantId, v1.id);
+    expect(detail?.vehicle.plate).toBe("34ABC01");
+    expect(detail?.documents).toHaveLength(1);
+    expect(detail?.maintenance).toHaveLength(1);
+    expect(detail?.inspections[0]!.result).toBe("gecti");
+  });
+
+  it("olmayan araç için null döner", async () => {
+    const { tenantId } = await seed();
+    const { vehicleDetail } = await import("@/modules/filo/queries");
+    expect(await vehicleDetail(tenantId, "00000000-0000-4000-8000-000000000000")).toBeNull();
+  });
+
+  it("sürücü silinince belgeleri de silinir", async () => {
+    const { tenantId } = await seed();
+    const { driverDocuments, drivers } = await import("@/db/schema");
+    const [driver] = await dbAdmin
+      .insert(drivers)
+      .values({ tenantId, fullName: "Ali Şoför" })
+      .returning();
+    await dbAdmin.insert(driverDocuments).values({
+      tenantId,
+      driverId: driver!.id,
+      docType: "ehliyet",
+      expiresOn: "2028-01-01",
+    });
+    await dbAdmin.delete(drivers);
+    expect(await dbAdmin.select().from(driverDocuments)).toHaveLength(0);
+  });
+});
