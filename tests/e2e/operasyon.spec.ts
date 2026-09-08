@@ -100,3 +100,87 @@ test("kısıtlı kullanıcı operasyona erişemez", async ({ page }) => {
   await page.goto("/operasyon/yolcular");
   await expect(page).toHaveURL("/dashboard");
 });
+
+test("çetele onaylanır, onaylı kayıt düzenlenemez", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+  await page.goto("/operasyon/cetele");
+
+  await page.getByRole("button", { name: "Yeni Kayıt" }).click();
+  const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+  await form.getByLabel("Araç").selectOption({ label: "34ABC01" });
+  await form.getByLabel("Hareket Tipi").fill("sabah");
+  await form.getByLabel("Yolcu Sayısı").fill("22");
+  await form.getByRole("button", { name: "Kaydet" }).click();
+
+  const row = page.getByRole("row").filter({ hasText: "34ABC01" });
+  await expect(row.getByText("Bekliyor")).toBeVisible();
+
+  await row.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Seçilenleri Onayla" }).click();
+
+  await expect(row.getByText("Onaylandı")).toBeVisible();
+  await expect(row.getByRole("link", { name: "Düzenle" })).toHaveCount(0);
+  await expect(row.getByRole("button", { name: "Onayı Geri Al" })).toBeVisible();
+});
+
+test("pilates kiracısında çetele yeteneği kapalı", async ({ page }) => {
+  await login(page, "pilates@e2e.test");
+  await page.goto("/operasyon/cetele");
+  await expect(page).toHaveURL("/dashboard");
+});
+
+test("lojistik kiracısında çetele menüde yok ama rota planlama açık", async ({ page }) => {
+  await login(page, "lojistik@e2e.test");
+  // lojistik paketi yalnız operasyon.rota_planlama yeteneğini açıyor
+  await expect(page.getByRole("link", { name: "Çetele", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Transferler", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Güzergahlar", exact: true })).toBeVisible();
+});
+
+test("transfer durum makinesi sırayı zorlar", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+  await page.goto("/operasyon/transferler");
+
+  await page.getByRole("button", { name: "Yeni Transfer" }).click();
+  const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+  await form.getByLabel("Başlık").fill("E2E Havalimanı Transferi");
+  await form.getByRole("button", { name: "Kaydet" }).click();
+
+  await page.getByRole("link", { name: "E2E Havalimanı Transferi" }).click();
+
+  // istek durumunda yalnız Planlandı ve İptal seçenekleri olmalı
+  await expect(page.getByRole("button", { name: "Planlandı" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Tamamlandı" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Planlandı" }).click();
+  await expect(page.getByRole("button", { name: "Yolda" })).toBeVisible();
+});
+
+test("güzergaha araç atanınca önceki atama kapanır", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+  await page.goto("/operasyon/guzergahlar");
+
+  await page.getByRole("button", { name: "Yeni Güzergah" }).click();
+  const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+  await form.getByLabel("Güzergah Adı").fill("E2E Gebze Hattı");
+  await form.getByRole("button", { name: "Kaydet" }).click();
+
+  await page.getByRole("link", { name: "E2E Gebze Hattı" }).click();
+  await page.waitForURL(/\/operasyon\/guzergahlar\/[0-9a-f-]{36}$/);
+  const routeUrl = page.url();
+  for (const plate of ["34ABC01", "34XYZ02"]) {
+    // Her atama arasında sayfayı tazeliyoruz: kaydetme sonrası RSC yeniden
+    // render ederken forma tekrar tıklamak testi kararsızlaştırıyor.
+    await page.goto(routeUrl);
+    await page.getByRole("button", { name: "Araç Ata" }).click();
+    const assignForm = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+    await assignForm.getByLabel("Araç").selectOption({ label: plate });
+    await assignForm.getByRole("button", { name: "Kaydet" }).click();
+    await expect(assignForm.getByText("Atama kaydedildi.")).toBeVisible();
+  }
+
+  await page.goto(routeUrl);
+
+  // Tek "güncel" rozeti kalmalı — ikinci atama ilkini kapatır
+  await expect(page.getByText("güncel")).toHaveCount(1);
+});

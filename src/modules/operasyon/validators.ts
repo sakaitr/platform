@@ -85,3 +85,115 @@ export const DailyQuestionSchema = z.object({
   position: z.coerce.number().int().min(0).catch(0),
   isActive: z.coerce.boolean().catch(true),
 });
+
+const optionalDecimal = z
+  .string()
+  .trim()
+  .transform((v) => (v.length === 0 ? null : v.replace(",", ".")))
+  .nullable()
+  .refine((v) => v === null || Number.isFinite(Number(v)), "Sayı girin.");
+
+const optionalInt = z
+  .string()
+  .trim()
+  .transform((v) => (v.length === 0 ? null : Number(v)))
+  .nullable()
+  .refine((v) => v === null || Number.isInteger(v), "Tam sayı girin.");
+
+const optionalClock = z
+  .string()
+  .trim()
+  .transform((v) => (v.length === 0 ? null : v))
+  .nullable()
+  .refine((v) => v === null || /^([01]\d|2[0-3]):[0-5]\d$/.test(v), "Saat SS:DD biçiminde olmalı.");
+
+export const RouteSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(2, "Güzergah adı en az 2 karakter olmalı.").max(255),
+  code: optionalText(50),
+  companyId: optionalUuid,
+  direction: z.enum(["gidis", "donus", "ikisi"]).catch("ikisi"),
+  capacity: optionalInt,
+  shiftName: optionalText(100),
+  morningDeparture: optionalClock,
+  morningArrival: optionalClock,
+  eveningDeparture: optionalClock,
+  eveningArrival: optionalClock,
+  vehicleId: optionalUuid,
+  driverId: optionalUuid,
+  distanceKm: optionalDecimal,
+  durationMin: optionalInt,
+  isActive: z.coerce.boolean().catch(true),
+  notes: optionalText(1000),
+});
+
+export const RouteAssignmentSchema = z.object({
+  routeId: z.string().uuid("Güzergah seçin."),
+  vehicleId: z.string().uuid("Araç seçin."),
+  driverId: optionalUuid,
+  tripType: optionalText(40),
+  startsOn: dayKey,
+  notes: optionalText(500),
+});
+
+export const CompanyShiftSchema = z.object({
+  id: z.string().uuid().optional(),
+  companyId: z.string().uuid("Firma seçin."),
+  name: z.string().trim().min(1, "Vardiya adı gerekli.").max(100),
+  expectedAt: clockTime,
+  toleranceEarly: z.coerce.number().int().min(0).max(180).catch(15),
+  toleranceLate: z.coerce.number().int().min(0).max(180).catch(10),
+  isActive: z.coerce.boolean().catch(true),
+});
+
+export const OpenRouteSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(2, "Güzergah adı gerekli.").max(255),
+  companyId: optionalUuid,
+  distanceKm: optionalDecimal,
+  durationMin: optionalInt,
+  price: optionalDecimal,
+  status: z.enum(["acik", "fiyatlandi", "kapandi"]).catch("acik"),
+  notes: optionalText(1000),
+});
+
+export const TripLogSchema = z.object({
+  id: z.string().uuid().optional(),
+  vehicleId: z.string().uuid("Araç seçin."),
+  routeId: optionalUuid,
+  driverId: optionalUuid,
+  companyId: optionalUuid,
+  logDate: dayKey,
+  tripType: z.string().trim().min(1, "Hareket tipi gerekli.").max(40),
+  direction: optionalText(10),
+  passengerCount: optionalInt,
+  notes: optionalText(500),
+});
+
+export const TransferSchema = z.object({
+  id: z.string().uuid().optional(),
+  title: z.string().trim().min(2, "Başlık gerekli.").max(255),
+  companyId: optionalUuid,
+  vehicleId: optionalUuid,
+  driverId: optionalUuid,
+  pickupLocation: optionalText(1000),
+  dropoffLocation: optionalText(1000),
+  transferDate: z
+    .string()
+    .trim()
+    .transform((v) => (v.length === 0 ? null : v))
+    .nullable()
+    .refine((v) => v === null || /^\d{4}-\d{2}-\d{2}$/.test(v), "Tarih seçin."),
+  transferTime: optionalClock,
+  passengerCount: optionalInt,
+  price: optionalDecimal,
+  notes: optionalText(1000),
+});
+
+export const RoutePlanSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(2, "Plan adı gerekli.").max(255),
+  companyId: optionalUuid,
+  shiftName: optionalText(100),
+  direction: z.enum(["gidis", "donus", "ikisi"]).catch("gidis"),
+});

@@ -34,6 +34,10 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     capabilities: ["operasyon.cetele", "operasyon.rota_planlama", "operasyon.transfer"],
     children: [
       { label: "Giriş Kontrol", href: "/operasyon/giris-kontrol" },
+      { label: "Güzergahlar", href: "/operasyon/guzergahlar" },
+      { label: "Açık Güzergahlar", href: "/operasyon/acik-guzergahlar" },
+      { label: "Çetele", href: "/operasyon/cetele", capability: "operasyon.cetele" },
+      { label: "Transferler", href: "/operasyon/transferler", capability: "operasyon.transfer" },
       { label: "Yolcular", href: "/operasyon/yolcular" },
       { label: "Ziyaretçiler", href: "/operasyon/ziyaretciler" },
       { label: "Günlük", href: "/operasyon/gunluk" },

@@ -6,6 +6,9 @@ import { defineConfig } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./tests/e2e",
+  // Her koşu temiz veriyle başlar. Testler kayıt oluşturuyor; artık veri
+  // ikinci koşuda tekillik hatası veriyordu.
+  globalSetup: "./tests/e2e/global-setup.ts",
   expect: { timeout: 15_000 },
   use: { baseURL: "http://localhost:3100" },
   webServer: {
