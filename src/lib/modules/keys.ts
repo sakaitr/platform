@@ -10,6 +10,9 @@ export const MODULE_KEYS = [
   "filo",
   "crm",
   "muhasebe",
+  "gorevler",
+  "destek",
+  "ik",
   "raporlar",
   "admin",
 ] as const;

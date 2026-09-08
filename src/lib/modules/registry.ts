@@ -52,6 +52,32 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     children: [{ label: "Firmalar", href: "/crm/firmalar" }],
   },
   {
+    key: "gorevler",
+    label: "Görevler",
+    icon: "ListChecks",
+    href: "/gorevler",
+    permission: "gorevler:read",
+  },
+  {
+    key: "destek",
+    label: "Destek",
+    icon: "LifeBuoy",
+    href: "/destek",
+    permission: "sorunlar:read",
+    children: [
+      { label: "Talepler", href: "/destek" },
+      { label: "Öneri / Şikâyet", href: "/oneriler" },
+    ],
+  },
+  {
+    key: "ik",
+    label: "İnsan Kaynakları",
+    icon: "Users",
+    href: "/izinler",
+    permission: "dashboard:read",
+    children: [{ label: "İzinler", href: "/izinler" }],
+  },
+  {
     key: "raporlar",
     label: "Raporlar",
     icon: "FileBarChart",
@@ -97,6 +123,9 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
       { label: "Lastikler", href: "/filo/lastikler" },
       { label: "Yakıt Kartları", href: "/filo/yakit-kartlari" },
       { label: "Yakıt Dolumları", href: "/filo/yakit" },
+      { label: "Uyarılar", href: "/filo/uyarilar" },
+      { label: "Sürücü Sicili", href: "/filo/sicil" },
+      { label: "Değerlendirme", href: "/filo/degerlendirme" },
     ],
   },
   {
@@ -112,6 +141,7 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
       { label: "Terimler", href: "/admin/terminoloji" },
       { label: "Özel Alanlar", href: "/admin/alanlar" },
       { label: "Veri Aktarımı", href: "/veri-aktarim" },
+      { label: "Portal Kullanıcıları", href: "/admin/portal" },
     ],
   },
 ];

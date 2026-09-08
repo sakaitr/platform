@@ -46,6 +46,9 @@ export type SectorPack = {
 
 const COMMON_NUMBERING: readonly PackSequence[] = [
   { sequenceKey: "fatura", prefix: "FT", padding: 6, periodReset: "yearly" },
+  { sequenceKey: "talep", prefix: "TLP", padding: 6, periodReset: "yearly" },
+  { sequenceKey: "oneri", prefix: "ONR", padding: 6, periodReset: "yearly" },
+  { sequenceKey: "uyari", prefix: "UYR", padding: 6, periodReset: "yearly" },
 ];
 
 /** Her pakette bulunan çekirdek roller. Paket kendi rollerini üstüne ekler. */
@@ -76,7 +79,18 @@ export const SECTOR_PACKS: Record<string, SectorPack> = {
     key: "turizm",
     name: "Turizm / Personel Taşıma",
     version: "1.0.0",
-    modules: ["dashboard", "operasyon", "filo", "crm", "muhasebe", "raporlar", "admin"],
+    modules: [
+      "dashboard",
+      "operasyon",
+      "filo",
+      "crm",
+      "muhasebe",
+      "gorevler",
+      "destek",
+      "ik",
+      "raporlar",
+      "admin",
+    ],
     capabilities: [
       "muhasebe.hakedis",
       "muhasebe.mutabakat",
@@ -132,7 +146,18 @@ export const SECTOR_PACKS: Record<string, SectorPack> = {
     key: "lojistik",
     name: "Lojistik / Nakliye",
     version: "1.0.0",
-    modules: ["dashboard", "operasyon", "filo", "crm", "muhasebe", "raporlar", "admin"],
+    modules: [
+      "dashboard",
+      "operasyon",
+      "filo",
+      "crm",
+      "muhasebe",
+      "gorevler",
+      "destek",
+      "ik",
+      "raporlar",
+      "admin",
+    ],
     capabilities: ["muhasebe.irsaliye", "operasyon.rota_planlama"],
     terminology: {
       customer: "Müşteri",
@@ -180,7 +205,7 @@ export const SECTOR_PACKS: Record<string, SectorPack> = {
     key: "pilates",
     name: "Pilates / Fitness Stüdyo",
     version: "1.0.0",
-    modules: ["dashboard", "crm", "muhasebe", "raporlar", "admin"],
+    modules: ["dashboard", "crm", "muhasebe", "gorevler", "destek", "ik", "raporlar", "admin"],
     capabilities: ["randevu.paket", "randevu.bekleme_listesi"],
     terminology: {
       customer: "Üye",
@@ -214,7 +239,7 @@ export const SECTOR_PACKS: Record<string, SectorPack> = {
     key: "oto_servis",
     name: "Oto Servis",
     version: "1.0.0",
-    modules: ["dashboard", "crm", "muhasebe", "raporlar", "admin"],
+    modules: ["dashboard", "crm", "muhasebe", "gorevler", "destek", "ik", "raporlar", "admin"],
     capabilities: ["randevu.parca_stok", "randevu.proforma"],
     terminology: {
       customer: "Araç Sahibi",
