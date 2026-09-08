@@ -50,24 +50,32 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-    networks: [internal]
+    networks:
+      internal:
+        # app hem internal hem coolify ağında. coolify'da BAŞKA konteynerler de
+        # `postgres` adını taşıyor; round-robin DNS bizi onlara yolluyordu
+        # (28P01 auth_failed). Bu alias yalnız iç ağda var, çakışamaz.
+        # DATABASE_URL bu adı kullanır — asla `postgres` değil.
+        aliases: [agnodb]
 
   redis:
     image: redis:7-alpine
     container_name: agno_platform_redis
     restart: unless-stopped
     volumes: [redis_data:/data]
-    networks: [internal]
+    networks:
+      internal:
+        aliases: [agnocache]
 
 volumes:
   pg_data:
   redis_data:
 
 networks:
-  # İzole iç ağ — postgres/redis SADECE burada.
-  # coolify ağında `postgres` ve `redis` alias'ları BAŞKA projelerle çakışıyor
-  # (coolify-db, cardflow, agnoyntm). Round-robin DNS yanlış veritabanına
-  # bağlanmaya yol açıyordu. İç ağ bu çakışmayı tamamen keser.
+  # İzole iç ağ — postgres/redis SADECE burada, `agnodb`/`agnocache` adlarıyla.
+  # coolify ağında `postgres` ve `redis` adlarını BAŞKA projeler de kullanıyor
+  # (coolify-db, cardflow, agnoyntm). app iki ağda birden olduğu için
+  # round-robin DNS onu yabancı veritabanına bağlıyordu. Benzersiz alias keser.
   internal:
     driver: bridge
   # Sadece app bağlanır — Traefik'in erişebilmesi için.
