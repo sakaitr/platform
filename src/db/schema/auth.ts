@@ -1,4 +1,5 @@
 import { boolean, index, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
+import { companies } from "./core";
 import { tenants } from "./tenants";
 
 export const userRoleEnum = pgEnum("user_role", ["owner", "admin", "manager", "member", "viewer"]);
@@ -106,8 +107,9 @@ export const userScopes = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    /** Firma modülü Plan 7'de gelecek; şimdilik serbest uuid, FK yok. */
-    companyId: uuid("company_id").notNull(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
