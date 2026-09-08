@@ -81,6 +81,16 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     children: [
       { label: "Araçlar", href: "/filo/araclar" },
       { label: "Sürücüler", href: "/filo/suruculer" },
+      { label: "Bakımlar", href: "/filo/bakim" },
+      { label: "Belgeler", href: "/filo/belgeler" },
+      { label: "Denetimler", href: "/filo/denetimler" },
+      { label: "Kazalar", href: "/filo/kazalar" },
+      { label: "Cezalar", href: "/filo/cezalar" },
+      { label: "Arızalar", href: "/filo/arizalar" },
+      { label: "Sigortalar", href: "/filo/sigortalar" },
+      { label: "Lastikler", href: "/filo/lastikler" },
+      { label: "Yakıt Kartları", href: "/filo/yakit-kartlari" },
+      { label: "Yakıt Dolumları", href: "/filo/yakit" },
     ],
   },
   {

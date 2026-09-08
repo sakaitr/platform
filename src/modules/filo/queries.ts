@@ -1,12 +1,12 @@
 import { and, asc, count, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm";
-import { companies, drivers, vehicles } from "@/db/schema";
+import { companies, drivers, fuelCards, vehicles } from "@/db/schema";
 import { withTenant } from "@/db/tenant";
 
 export const PAGE_SIZE = 50;
 
 /** Kapsamlı kullanıcı: yalnız kendi firmalarının + firmasız (kiracıya ait) kayıtlar. */
 function scopeClause(
-  column: typeof vehicles.companyId | typeof drivers.companyId,
+  column: typeof vehicles.companyId | typeof drivers.companyId | typeof fuelCards.companyId,
   scope: string[] | null,
 ): SQL | undefined {
   if (scope === null) return undefined;
@@ -119,6 +119,37 @@ export async function listDrivers(tenantId: string, f: DriverFilter) {
 export async function getDriver(tenantId: string, id: string) {
   const rows = await withTenant(tenantId, (tx) =>
     tx.select().from(drivers).where(and(eq(drivers.tenantId, tenantId), eq(drivers.id, id))),
+  );
+  return rows[0] ?? null;
+}
+
+export async function listFuelCards(tenantId: string, scope: string[] | null) {
+  const parts: SQL[] = [eq(fuelCards.tenantId, tenantId)];
+  const sc = scopeClause(fuelCards.companyId, scope);
+  if (sc) parts.push(sc);
+  return withTenant(tenantId, (tx) =>
+    tx
+      .select({
+        id: fuelCards.id,
+        cardNo: fuelCards.cardNo,
+        provider: fuelCards.provider,
+        limitKind: fuelCards.limitKind,
+        limitValue: fuelCards.limitValue,
+        isActive: fuelCards.isActive,
+        plate: vehicles.plate,
+        companyName: companies.name,
+      })
+      .from(fuelCards)
+      .leftJoin(vehicles, eq(vehicles.id, fuelCards.vehicleId))
+      .leftJoin(companies, eq(companies.id, fuelCards.companyId))
+      .where(and(...parts))
+      .orderBy(asc(fuelCards.cardNo)),
+  );
+}
+
+export async function getFuelCard(tenantId: string, id: string) {
+  const rows = await withTenant(tenantId, (tx) =>
+    tx.select().from(fuelCards).where(and(eq(fuelCards.tenantId, tenantId), eq(fuelCards.id, id))),
   );
   return rows[0] ?? null;
 }

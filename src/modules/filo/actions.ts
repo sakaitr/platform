@@ -2,12 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
-import { drivers, vehicles } from "@/db/schema";
+import { drivers, fuelCards, vehicles } from "@/db/schema";
 import { withTenant } from "@/db/tenant";
 import { requireModule } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { isInScope } from "@/lib/scope";
-import { DriverSchema, VehicleSchema } from "./validators";
+import { DriverSchema, FuelCardSchema, VehicleSchema } from "./validators";
 
 export type ActionState = { error: string } | { ok: string } | null;
 
@@ -144,4 +144,59 @@ export async function deleteDriverAction(formData: FormData): Promise<void> {
     entityId: id,
   });
   revalidatePath("/filo/suruculer");
+}
+
+export async function saveFuelCardAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const isUpdate = Boolean(formData.get("id"));
+  const session = await requireModule(
+    isUpdate ? "yakit_kartlari:update" : "yakit_kartlari:create",
+    "filo",
+  );
+
+  const parsed = FuelCardSchema.safeParse({
+    id: formData.get("id") || undefined,
+    cardNo: formData.get("cardNo") ?? "",
+    provider: formData.get("provider") ?? "",
+    vehicleId: formData.get("vehicleId") ?? "",
+    companyId: formData.get("companyId") ?? "",
+    limitKind: formData.get("limitKind") ?? "sinirsiz",
+    limitValue: formData.get("limitValue") ?? "",
+    isActive: formData.get("isActive") === "on",
+    notes: formData.get("notes") ?? "",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]!.message };
+  const { id, ...values } = parsed.data;
+
+  if (values.companyId && !isInScope(session.scope, values.companyId)) {
+    return { error: "Seçilen firma kapsamınızda değil." };
+  }
+
+  try {
+    await withTenant(session.tenantId, async (tx) => {
+      if (isUpdate && id) {
+        await tx
+          .update(fuelCards)
+          .set({ ...values, updatedAt: new Date() })
+          .where(and(eq(fuelCards.tenantId, session.tenantId), eq(fuelCards.id, id)));
+      } else {
+        await tx.insert(fuelCards).values({ ...values, tenantId: session.tenantId });
+      }
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) return { error: "Bu kart numarası zaten kayıtlı." };
+    throw error;
+  }
+
+  revalidatePath("/filo/yakit-kartlari");
+  return { ok: isUpdate ? "Kart güncellendi." : "Kart eklendi." };
+}
+
+export async function deleteFuelCardAction(formData: FormData): Promise<void> {
+  const session = await requireModule("yakit_kartlari:delete", "filo");
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await withTenant(session.tenantId, (tx) =>
+    tx.delete(fuelCards).where(and(eq(fuelCards.tenantId, session.tenantId), eq(fuelCards.id, id))),
+  );
+  revalidatePath("/filo/yakit-kartlari");
 }

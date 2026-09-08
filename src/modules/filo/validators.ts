@@ -59,3 +59,20 @@ export const DriverSchema = z.object({
   status: z.enum(["aktif", "izinli", "pasif"]).catch("aktif"),
   notes: optionalText(1000),
 });
+
+export const FuelCardSchema = z.object({
+  id: z.string().uuid().optional(),
+  cardNo: z.string().trim().min(3, "Kart numarası en az 3 karakter olmalı.").max(50),
+  provider: optionalText(50),
+  vehicleId: optionalUuid,
+  companyId: optionalUuid,
+  limitKind: z.enum(["sinirsiz", "miktar", "tutar"]).catch("sinirsiz"),
+  limitValue: z
+    .string()
+    .trim()
+    .transform((v) => (v.length === 0 ? null : v.replace(",", ".")))
+    .nullable()
+    .refine((v) => v === null || Number.isFinite(Number(v)), "Sayı girin."),
+  isActive: z.coerce.boolean().catch(true),
+  notes: optionalText(1000),
+});
