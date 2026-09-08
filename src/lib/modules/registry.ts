@@ -26,6 +26,28 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     permission: "dashboard:read",
   },
   {
+    key: "operasyon",
+    label: "Operasyon",
+    icon: "Route",
+    href: "/operasyon",
+    permission: "arrivals:read",
+    capabilities: ["operasyon.cetele", "operasyon.rota_planlama", "operasyon.transfer"],
+    children: [
+      { label: "Giriş Kontrol", href: "/operasyon/giris-kontrol" },
+      { label: "Yolcular", href: "/operasyon/yolcular" },
+      { label: "Ziyaretçiler", href: "/operasyon/ziyaretciler" },
+      { label: "Günlük", href: "/operasyon/gunluk" },
+    ],
+  },
+  {
+    key: "crm",
+    label: "CRM",
+    icon: "Building2",
+    href: "/crm/firmalar",
+    permission: "firmalar:read",
+    children: [{ label: "Firmalar", href: "/crm/firmalar" }],
+  },
+  {
     key: "raporlar",
     label: "Raporlar",
     icon: "FileBarChart",
@@ -46,7 +68,17 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
       { label: "Hakedişler", href: "/muhasebe/hakedis", capability: "muhasebe.hakedis" },
     ],
   },
-  { key: "filo", label: "Filo", icon: "Truck", href: "/filo", permission: "dashboard:read" },
+  {
+    key: "filo",
+    label: "Filo",
+    icon: "Truck",
+    href: "/filo/araclar",
+    permission: "araclar:read",
+    children: [
+      { label: "Araçlar", href: "/filo/araclar" },
+      { label: "Sürücüler", href: "/filo/suruculer" },
+    ],
+  },
   {
     key: "admin",
     label: "Yönetim",
