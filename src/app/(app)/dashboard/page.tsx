@@ -15,7 +15,12 @@ export default async function DashboardPage() {
     (m) => m.key !== "dashboard",
   );
   const allowed = new Set(modules.map((m) => m.key));
-  const tiles = await dashboardTiles(session.tenantId, session.permissions, allowed);
+  const tiles = await dashboardTiles(
+    session.tenantId,
+    session.permissions,
+    allowed,
+    access.capabilities,
+  );
 
   return (
     <div className="space-y-6">

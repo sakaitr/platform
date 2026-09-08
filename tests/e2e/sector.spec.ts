@@ -35,3 +35,14 @@ test("pilates kiracısında filo modülü yok (lisanssız)", async ({ page }) =>
   await login(page, "pilates@e2e.test");
   await expect(page.getByRole("link", { name: "Filo" })).toHaveCount(0);
 });
+
+test("dashboard sayaçları alt yeteneğe de bağlı", async ({ page }) => {
+  // lojistik pakette operasyon açık ama çetele yeteneği kapalı:
+  // sayaç görünmemeli, yoksa tıklayınca boşa yönlendirme olur.
+  await login(page, "lojistik@e2e.test");
+  await expect(page.getByRole("main").getByText("Onay bekleyen çetele")).toHaveCount(0);
+  await expect(page.getByRole("main").getByText("Aktif araç")).toBeVisible();
+
+  await login(page, "kisitli-owner@e2e.test");
+  await expect(page.getByRole("main").getByText("Onay bekleyen çetele")).toBeVisible();
+});

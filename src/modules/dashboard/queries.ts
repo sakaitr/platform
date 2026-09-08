@@ -31,14 +31,22 @@ export async function dashboardTiles(
   tenantId: string,
   permissions: Set<string>,
   allowedModules: Set<string>,
+  capabilities: Set<string>,
 ): Promise<DashboardTile[]> {
   const today = istanbulDayKey();
   const monthStart = `${today.slice(0, 7)}-01`;
   const soon = shiftDay(today, 30);
   const tiles: DashboardTile[] = [];
 
-  const can = (permission: string, moduleKey: string): boolean =>
-    permissions.has(permission) && allowedModules.has(moduleKey);
+  /**
+   * Sayaç hem izne, hem modül lisansına, hem de (varsa) alt yeteneğe bağlı.
+   * Yalnız modüle bakmak yetmiyordu: lojistikte operasyon açık ama çetele
+   * kapalı; sayaç görünüp tıklayınca yönlendirme yapıyordu.
+   */
+  const can = (permission: string, moduleKey: string, capability?: string): boolean =>
+    permissions.has(permission) &&
+    allowedModules.has(moduleKey) &&
+    (capability === undefined || capabilities.has(capability));
 
   await withTenant(tenantId, async (tx) => {
     const scalar = async (query: Promise<Array<{ value: unknown }>>): Promise<number> =>
@@ -69,7 +77,7 @@ export async function dashboardTiles(
       }
     }
 
-    if (can("cetele:read", "operasyon")) {
+    if (can("cetele:read", "operasyon", "operasyon.cetele")) {
       const pending = await scalar(
         tx
           .select({ value: sql`count(*)` })
@@ -150,7 +158,7 @@ export async function dashboardTiles(
       });
     }
 
-    if (can("hakedis:read", "muhasebe")) {
+    if (can("hakedis:read", "muhasebe", "muhasebe.hakedis")) {
       const waiting = await scalar(
         tx
           .select({ value: sql`count(*)` })
