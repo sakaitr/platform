@@ -7,7 +7,7 @@ import { listPassengers } from "@/modules/operasyon/yolcular/queries";
 import { listVisitors } from "@/modules/operasyon/ziyaretci/queries";
 
 export default async function OperasyonPage() {
-  const { session, t } = await pageContext("arrivals:read");
+  const { session, t } = await pageContext("arrivals:read", "operasyon");
   const today = istanbulDayKey();
 
   const [gelisler, yolcular, ziyaretciler] = await Promise.all([

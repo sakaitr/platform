@@ -27,3 +27,15 @@ export async function requirePermission(permissionKey: string): Promise<SessionU
   if (!hasPermission(session, permissionKey)) redirect("/dashboard");
   return session;
 }
+
+/**
+ * İzin + modül lisansı birlikte. Server action'larda kullanılır:
+ * sayfayı gizlemek yetmez, aksiyon da lisanssız kiracıya çalışmamalı.
+ */
+export async function requireModule(permissionKey: string, moduleKey: string): Promise<SessionUser> {
+  const session = await requirePermission(permissionKey);
+  const { getTenantAccess } = await import("@/lib/licensing");
+  const access = await getTenantAccess(session.tenantId);
+  if (access.modules.get(moduleKey)?.allowed !== true) redirect("/dashboard");
+  return session;
+}

@@ -41,3 +41,16 @@ export function listImportTargets(permissions: Set<string>): ImportTarget[] {
     .filter((t) => permissions.has(t.permission))
     .sort((a, b) => a.label.localeCompare(b.label));
 }
+
+/**
+ * Modül hedeflerini yükler. Sunucuda ilk kullanımda çağrılır;
+ * tekrar çağrılması zararsızdır (aynı anahtar üzerine yazılır).
+ */
+let bootstrapped = false;
+
+export async function ensureImportTargetsRegistered(): Promise<void> {
+  if (bootstrapped) return;
+  const { registerOperasyonImports } = await import("@/modules/operasyon/import-targets");
+  registerOperasyonImports();
+  bootstrapped = true;
+}

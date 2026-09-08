@@ -91,6 +91,7 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
       { label: "Firma Kapsamı", href: "/admin/kapsam" },
       { label: "Terimler", href: "/admin/terminoloji" },
       { label: "Özel Alanlar", href: "/admin/alanlar" },
+      { label: "Veri Aktarımı", href: "/veri-aktarim" },
     ],
   },
 ];

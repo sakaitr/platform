@@ -8,7 +8,7 @@ import { listVisitors } from "@/modules/operasyon/ziyaretci/queries";
 
 export default async function ZiyaretcilerPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const { session, t } = await pageContext("ziyaretci:read");
+  const { session, t } = await pageContext("ziyaretci:read", "operasyon");
 
   const day = one(params, "tarih") ?? istanbulDayKey();
   const [rows, firmalar] = await Promise.all([

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { passengers } from "@/db/schema";
 import { withTenant } from "@/db/tenant";
-import { requirePermission } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { isInScope } from "@/lib/scope";
 import { PassengerSchema } from "../validators";
@@ -13,7 +13,7 @@ export type ActionState = { error: string } | { ok: string } | null;
 
 export async function savePassengerAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const isUpdate = Boolean(formData.get("id"));
-  const session = await requirePermission(isUpdate ? "yolcular:update" : "yolcular:create");
+  const session = await requireModule(isUpdate ? "yolcular:update" : "yolcular:create", "operasyon");
 
   const parsed = PassengerSchema.safeParse({
     id: formData.get("id") || undefined,
@@ -70,7 +70,7 @@ export async function savePassengerAction(_prev: ActionState, formData: FormData
 }
 
 export async function deletePassengerAction(formData: FormData): Promise<void> {
-  const session = await requirePermission("yolcular:delete");
+  const session = await requireModule("yolcular:delete", "operasyon");
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await withTenant(session.tenantId, (tx) =>

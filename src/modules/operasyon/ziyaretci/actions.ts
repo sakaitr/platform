@@ -4,14 +4,14 @@ import { revalidatePath } from "next/cache";
 import { and, eq, isNull } from "drizzle-orm";
 import { visitorLogs } from "@/db/schema";
 import { withTenant } from "@/db/tenant";
-import { requirePermission } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { VisitorSchema } from "../validators";
 
 export type ActionState = { error: string } | { ok: string } | null;
 
 export async function saveVisitorAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const session = await requirePermission("ziyaretci:create");
+  const session = await requireModule("ziyaretci:create", "operasyon");
 
   const parsed = VisitorSchema.safeParse({
     visitorName: formData.get("visitorName") ?? "",
@@ -42,7 +42,7 @@ export async function saveVisitorAction(_prev: ActionState, formData: FormData):
 
 /** Çıkış saatini yalnız bir kez yazar — ikinci tık kaydı değiştirmez. */
 export async function checkoutVisitorAction(formData: FormData): Promise<void> {
-  const session = await requirePermission("ziyaretci:update");
+  const session = await requireModule("ziyaretci:update", "operasyon");
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 

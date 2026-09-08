@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { requirePermission } from "@/lib/auth";
 import type { SessionUser } from "@/lib/auth/session";
 import { getTenantAccess, type TenantAccess } from "@/lib/licensing";
@@ -14,12 +15,15 @@ export type PageContext = {
 };
 
 /**
- * Modül sayfalarının ortak başlangıcı: izin kontrolü + lisans + sektör terimleri.
- * Her sayfada dört çağrıyı tekrar etmemek için.
+ * Modül sayfalarının ortak başlangıcı: izin + modül lisansı + sektör terimleri.
+ *
+ * `moduleKey` verilirse lisans da kontrol edilir. Menüyü gizlemek yetmez —
+ * lisanssız modülün URL'si doğrudan yazılarak açılabilmemeli.
  */
-export async function pageContext(permission: string): Promise<PageContext> {
+export async function pageContext(permission: string, moduleKey?: string): Promise<PageContext> {
   const session = await requirePermission(permission);
   const access = await getTenantAccess(session.tenantId);
+  if (moduleKey && access.modules.get(moduleKey)?.allowed !== true) redirect("/dashboard");
   const pack = getPack(access.tenant.sectorPack);
   const terms = await getTerms(session.tenantId, pack.terminology);
   return {

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { vehicleArrivals } from "@/db/schema";
 import { withTenant } from "@/db/tenant";
-import { requirePermission } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { isInScope } from "@/lib/scope";
 import { ArrivalSchema } from "../validators";
@@ -13,7 +13,7 @@ export type ActionState = { error: string } | { ok: string } | null;
 
 export async function saveArrivalAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const isUpdate = Boolean(formData.get("id"));
-  const session = await requirePermission(isUpdate ? "arrivals:update" : "arrivals:create");
+  const session = await requireModule(isUpdate ? "arrivals:update" : "arrivals:create", "operasyon");
 
   const parsed = ArrivalSchema.safeParse({
     id: formData.get("id") || undefined,
@@ -66,7 +66,7 @@ export async function saveArrivalAction(_prev: ActionState, formData: FormData):
 }
 
 export async function deleteArrivalAction(formData: FormData): Promise<void> {
-  const session = await requirePermission("arrivals:delete");
+  const session = await requireModule("arrivals:delete", "operasyon");
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await withTenant(session.tenantId, (tx) =>

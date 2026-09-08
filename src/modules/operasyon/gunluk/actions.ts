@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { dailyEntries, dailyQuestions } from "@/db/schema";
 import { withTenant } from "@/db/tenant";
-import { requirePermission } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { istanbulDayKey } from "@/lib/time";
 import { DailyQuestionSchema } from "../validators";
@@ -12,7 +12,7 @@ import { DailyQuestionSchema } from "../validators";
 export type ActionState = { error: string } | { ok: string } | null;
 
 export async function saveQuestionAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const session = await requirePermission("gunluk:update");
+  const session = await requireModule("gunluk:update", "operasyon");
 
   const parsed = DailyQuestionSchema.safeParse({
     id: formData.get("id") || undefined,
@@ -42,7 +42,7 @@ export async function saveQuestionAction(_prev: ActionState, formData: FormData)
 }
 
 export async function deleteQuestionAction(formData: FormData): Promise<void> {
-  const session = await requirePermission("gunluk:delete");
+  const session = await requireModule("gunluk:delete", "operasyon");
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await withTenant(session.tenantId, (tx) =>
@@ -58,7 +58,7 @@ export async function deleteQuestionAction(formData: FormData): Promise<void> {
  * mevcut kayıt üzerine yazılır (tekil dizin zaten garanti eder).
  */
 export async function submitDailyAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const session = await requirePermission("gunluk:create");
+  const session = await requireModule("gunluk:create", "operasyon");
   const day = istanbulDayKey();
 
   const questions = await withTenant(session.tenantId, (tx) =>

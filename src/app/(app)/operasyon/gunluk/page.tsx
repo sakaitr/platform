@@ -34,7 +34,7 @@ const QUESTION_FIELDS: readonly FieldSpec[] = [
 
 export default async function GunlukPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const { session } = await pageContext("gunluk:read");
+  const { session } = await pageContext("gunluk:read", "operasyon");
 
   const day = one(params, "tarih") ?? istanbulDayKey();
   const canManage = session.permissions.has("gunluk:update");

@@ -32,7 +32,7 @@ const SERVICE_TONE: Record<string, string> = { aktif: "ok", askida: "warn", pasi
 
 export default async function YolcularPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const { session, t } = await pageContext("yolcular:read");
+  const { session, t } = await pageContext("yolcular:read", "operasyon");
 
   const filter = {
     q: one(params, "q"),

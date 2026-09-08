@@ -26,7 +26,7 @@ const STATUS_TONE: Record<string, string> = { aktif: "ok", bakimda: "warn", pasi
 
 export default async function AraclarPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const { session, t } = await pageContext("araclar:read");
+  const { session, t } = await pageContext("araclar:read", "filo");
 
   const filter = {
     q: one(params, "q"),

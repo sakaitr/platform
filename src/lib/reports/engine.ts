@@ -36,7 +36,9 @@ let bootstrapped = false;
 export async function ensureReportsRegistered(): Promise<void> {
   if (bootstrapped) return;
   const { registerCoreReports } = await import("@/modules/reports/core-reports");
+  const { registerOperasyonReports } = await import("@/modules/operasyon/reports");
   registerCoreReports();
+  registerOperasyonReports();
   bootstrapped = true;
 }
 

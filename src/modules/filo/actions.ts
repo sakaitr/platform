@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { drivers, vehicles } from "@/db/schema";
 import { withTenant } from "@/db/tenant";
-import { requirePermission } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { isInScope } from "@/lib/scope";
 import { DriverSchema, VehicleSchema } from "./validators";
@@ -18,7 +18,7 @@ function isUniqueViolation(error: unknown): boolean {
 
 export async function saveVehicleAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const isUpdate = Boolean(formData.get("id"));
-  const session = await requirePermission(isUpdate ? "araclar:update" : "araclar:create");
+  const session = await requireModule(isUpdate ? "araclar:update" : "araclar:create", "filo");
 
   const parsed = VehicleSchema.safeParse({
     id: formData.get("id") || undefined,
@@ -68,7 +68,7 @@ export async function saveVehicleAction(_prev: ActionState, formData: FormData):
 }
 
 export async function deleteVehicleAction(formData: FormData): Promise<void> {
-  const session = await requirePermission("araclar:delete");
+  const session = await requireModule("araclar:delete", "filo");
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await withTenant(session.tenantId, (tx) =>
@@ -86,7 +86,7 @@ export async function deleteVehicleAction(formData: FormData): Promise<void> {
 
 export async function saveDriverAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const isUpdate = Boolean(formData.get("id"));
-  const session = await requirePermission(isUpdate ? "suruculer:update" : "suruculer:create");
+  const session = await requireModule(isUpdate ? "suruculer:update" : "suruculer:create", "filo");
 
   const parsed = DriverSchema.safeParse({
     id: formData.get("id") || undefined,
@@ -130,7 +130,7 @@ export async function saveDriverAction(_prev: ActionState, formData: FormData): 
 }
 
 export async function deleteDriverAction(formData: FormData): Promise<void> {
-  const session = await requirePermission("suruculer:delete");
+  const session = await requireModule("suruculer:delete", "filo");
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await withTenant(session.tenantId, (tx) =>

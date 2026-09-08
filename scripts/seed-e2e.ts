@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { inArray } from "drizzle-orm";
 import { dbAdmin } from "@/db/admin";
-import { tenants, users } from "@/db/schema";
+import { companies, passengers, tenants, users, vehicles } from "@/db/schema";
 import { hashPassword } from "@/lib/auth";
 import { createRole } from "@/lib/rbac";
 import { provisionTenant } from "@/lib/sector/install";
@@ -37,6 +37,23 @@ async function main(): Promise<void> {
     ownerName: "Kisitli Owner",
     ownerPassword: "E2eTest1234!",
   });
+
+  // Kapsam testleri için iki firma + araç + yolcu
+  const [alfa, beta] = await dbAdmin
+    .insert(companies)
+    .values([
+      { tenantId, name: "Alfa Sanayi" },
+      { tenantId, name: "Beta Tekstil" },
+    ])
+    .returning();
+  await dbAdmin.insert(vehicles).values([
+    { tenantId, companyId: alfa!.id, plate: "34ABC01", capacity: 27, brand: "Mercedes" },
+    { tenantId, companyId: beta!.id, plate: "34XYZ02", capacity: 16, brand: "Ford" },
+  ]);
+  await dbAdmin.insert(passengers).values([
+    { tenantId, companyId: alfa!.id, fullName: "Alfa Yolcu" },
+    { tenantId, companyId: beta!.id, fullName: "Beta Yolcu" },
+  ]);
 
   const viewerRoleId = await createRole(tenantId, {
     key: "sadece_dashboard",

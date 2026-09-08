@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { companies } from "@/db/schema";
 import { withTenant } from "@/db/tenant";
-import { requirePermission } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { isInScope } from "@/lib/scope";
 import { CompanySchema } from "./validators";
@@ -29,7 +29,7 @@ function readCompanyForm(formData: FormData) {
 
 export async function saveCompanyAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const isUpdate = Boolean(formData.get("id"));
-  const session = await requirePermission(isUpdate ? "firmalar:update" : "firmalar:create");
+  const session = await requireModule(isUpdate ? "firmalar:update" : "firmalar:create", "crm");
 
   const parsed = readCompanyForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]!.message };
@@ -64,7 +64,7 @@ export async function saveCompanyAction(_prev: ActionState, formData: FormData):
 }
 
 export async function deleteCompanyAction(formData: FormData): Promise<void> {
-  const session = await requirePermission("firmalar:delete");
+  const session = await requireModule("firmalar:delete", "crm");
   const id = String(formData.get("id") ?? "");
   if (!id || !isInScope(session.scope, id)) return;
 

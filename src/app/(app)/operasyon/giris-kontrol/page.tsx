@@ -21,7 +21,7 @@ import { delayMinutes, listArrivals, shiftsOnDate } from "@/modules/operasyon/ar
 
 export default async function GirisKontrolPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const { session, t } = await pageContext("arrivals:read");
+  const { session, t } = await pageContext("arrivals:read", "operasyon");
 
   const date = one(params, "tarih") ?? istanbulDayKey();
   const filter = {

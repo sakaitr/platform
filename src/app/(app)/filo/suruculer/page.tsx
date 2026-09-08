@@ -27,7 +27,7 @@ const STATUS_TONE: Record<string, string> = { aktif: "ok", izinli: "warn", pasif
 
 export default async function SurucülerPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const { session, t } = await pageContext("suruculer:read");
+  const { session, t } = await pageContext("suruculer:read", "filo");
 
   const filter = {
     q: one(params, "q"),

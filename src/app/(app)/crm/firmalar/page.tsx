@@ -43,7 +43,7 @@ const TYPE_LABEL: Record<string, string> = {
 
 export default async function FirmalarPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const { session, t } = await pageContext("firmalar:read");
+  const { session, t } = await pageContext("firmalar:read", "crm");
 
   const label = t("customer");
   const filter = {
