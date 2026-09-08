@@ -7,12 +7,19 @@ import { vehicleOptions } from "@/modules/filo/queries";
 import {
   addRoutePassengerAction,
   assignRouteAction,
+  attachTagAction,
+  detachTagAction,
+  deleteTimeSlotAction,
   removeRoutePassengerAction,
+  saveTimeSlotAction,
 } from "@/modules/operasyon/guzergah/actions";
 import {
+  activeRoutePrice,
   getRoute,
   listAssignments,
   listRoutePassengers,
+  listTimeSlots,
+  tagsOfRoute,
 } from "@/modules/operasyon/guzergah/queries";
 import { listPassengers } from "@/modules/operasyon/yolcular/queries";
 
@@ -25,11 +32,14 @@ export default async function GuzergahDetayPage({ params }: { params: Promise<{ 
   const route = await getRoute(session.tenantId, id);
   if (!route) notFound();
 
-  const [assignments, routePax, allPax, araclar] = await Promise.all([
+  const [assignments, routePax, allPax, araclar, slots, tags, price] = await Promise.all([
     listAssignments(session.tenantId, id),
     listRoutePassengers(session.tenantId, id),
     listPassengers(session.tenantId, { scope: session.scope, durum: "aktif" }),
     vehicleOptions(session.tenantId, session.scope),
+    listTimeSlots(session.tenantId, id),
+    tagsOfRoute(session.tenantId, id),
+    activeRoutePrice(session.tenantId, id),
   ]);
 
   const canAssign = session.permissions.has("guzergahlar:assign");
@@ -59,12 +69,13 @@ export default async function GuzergahDetayPage({ params }: { params: Promise<{ 
           .join(" · ")}
       />
 
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-5">
         {[
           { label: "Atanmış yolcu", value: routePax.length },
           { label: "Kapasite", value: route.capacity ?? "—" },
           { label: "Mesafe", value: route.distanceKm ? `${route.distanceKm} km` : "—" },
           { label: "Süre", value: route.durationMin ? `${route.durationMin} dk` : "—" },
+          { label: "Aktif Fiyat", value: price ? `${price.price} ₺` : "—" },
         ].map((tile) => (
           <Card key={tile.label} className="p-4">
             <p className="text-xs uppercase tracking-wide text-neutral-500">{tile.label}</p>
@@ -78,6 +89,92 @@ export default async function GuzergahDetayPage({ params }: { params: Promise<{ 
           Atanan yolcu sayısı kapasiteyi aşıyor ({routePax.length} / {route.capacity}).
         </Card>
       ) : null}
+
+      <Card className="p-4">
+        <p className="mb-2 text-xs uppercase tracking-wide text-neutral-500">Etiketler</p>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          {tags.length === 0 ? (
+            <span className="text-xs text-neutral-500">Henüz etiket tanımlanmadı.</span>
+          ) : (
+            tags.map((tag) => (
+              <span key={tag.linkId} className="inline-flex items-center gap-1">
+                <Badge tone="info">{tag.name}</Badge>
+                {canAssign ? (
+                  <form action={detachTagAction}>
+                    <input type="hidden" name="linkId" value={tag.linkId} />
+                    <input type="hidden" name="routeId" value={id} />
+                    <button type="submit" className="text-xs text-neutral-400 hover:text-red-600">
+                      ×
+                    </button>
+                  </form>
+                ) : null}
+              </span>
+            ))
+          )}
+        </div>
+        {canAssign ? (
+          <form action={attachTagAction} className="flex flex-wrap items-end gap-2">
+            <input type="hidden" name="routeId" value={id} />
+            <input
+              name="tagName"
+              required
+              placeholder="Etiket adı"
+              className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm"
+            />
+            <Button type="submit" variant="ghost">
+              Etiket Ekle
+            </Button>
+          </form>
+        ) : null}
+      </Card>
+
+      <PageHeader
+        title="Vardiya / Saat Dilimleri"
+        description="Bir hat birden çok vardiyaya hizmet edebilir"
+        action={
+          canAssign ? (
+            <EntityForm
+              action={saveTimeSlotAction}
+              fields={[
+                { name: "name", label: "Vardiya Adı", type: "text", required: true },
+                { name: "arriveAt", label: "Varış", type: "time" },
+                { name: "departAt", label: "Kalkış", type: "time" },
+                { name: "position", label: "Sıra", type: "number" },
+              ]}
+              extraHidden={{ routeId: id }}
+              openLabel="Saat Dilimi Ekle"
+            />
+          ) : null
+        }
+      />
+      <Table head={["Vardiya", "Varış", "Kalkış", "Sıra", "Durum", ""]}>
+        {slots.length === 0 ? (
+          <EmptyRow colSpan={6} text="Saat dilimi tanımlanmadı." />
+        ) : (
+          slots.map((slot) => (
+            <tr key={slot.id} className="hover:bg-neutral-50">
+              <Td className="font-medium">{slot.name}</Td>
+              <Td>{slot.arriveAt ?? "—"}</Td>
+              <Td>{slot.departAt ?? "—"}</Td>
+              <Td className="text-neutral-500">{slot.position}</Td>
+              <Td>
+                <Badge tone={slot.isActive ? "ok" : "mute"}>{slot.isActive ? "Aktif" : "Pasif"}</Badge>
+              </Td>
+              <Td>
+                {canAssign ? (
+                  <form action={deleteTimeSlotAction} className="flex justify-end">
+                    <input type="hidden" name="id" value={slot.id} />
+                    <input type="hidden" name="routeId" value={id} />
+                    <Button type="submit" variant="danger">
+                      Sil
+                    </Button>
+                  </form>
+                ) : null}
+              </Td>
+            </tr>
+          ))
+        )}
+      </Table>
 
       <PageHeader
         title="Araç Atama Geçmişi"

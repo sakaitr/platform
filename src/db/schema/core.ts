@@ -201,3 +201,25 @@ export const files = pgTable(
 );
 
 export type StoredFile = typeof files.$inferSelect;
+
+/** Firmanın bizdeki sorumluları — birden çok kişi olabilir. */
+export const companyResponsibles = pgTable(
+  "company_responsibles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("company_responsibles_tenant_idx").on(t.tenantId),
+    uniq: uniqueIndex("company_responsibles_uniq").on(t.companyId, t.userId),
+  }),
+);
+
+export type CompanyResponsible = typeof companyResponsibles.$inferSelect;

@@ -392,7 +392,7 @@ test("çetele tahtası günün hatlarını gösterir ve toplu çetele açar", as
   let form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
   await form.getByLabel("Güzergah Adı").fill("E2E Çetele Hattı");
   await form.getByLabel("Vardiya").fill("sabah");
-  await form.getByLabel("Yön").selectOption("gidis");
+  await form.locator('select[name="direction"]').selectOption("gidis");
   await form.getByRole("button", { name: "Kaydet" }).click();
   await page.waitForLoadState("networkidle");
 
@@ -428,7 +428,7 @@ test("araç atanmamış hat toplu açmaya girmez", async ({ page }) => {
   await page.getByRole("button", { name: "Yeni Güzergah" }).click();
   const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
   await form.getByLabel("Güzergah Adı").fill("E2E Araçsız Hat");
-  await form.getByLabel("Yön").selectOption("gidis");
+  await form.locator('select[name="direction"]').selectOption("gidis");
   await form.getByRole("button", { name: "Kaydet" }).click();
   await page.waitForLoadState("networkidle");
 

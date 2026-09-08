@@ -147,3 +147,73 @@ describe("transfer durum makinesi", () => {
     expect(nextStatuses("tamamlandi")).toHaveLength(0);
   });
 });
+
+describe("saat dilimleri ve etiketler", () => {
+  beforeEach(async () => {
+    await resetDatabase();
+  });
+
+  it("etiket iki güzergaha bağlanabilir, aynı hatta iki kez bağlanamaz", async () => {
+    const { tenantId, route } = await seed();
+    const { routeTagLinks, routeTags } = await import("@/db/schema");
+    const [tag] = await dbAdmin
+      .insert(routeTags)
+      .values({ tenantId, name: "Öncelikli" })
+      .returning();
+    const [route2] = await dbAdmin
+      .insert(routes)
+      .values({ tenantId, name: "İkinci Hat" })
+      .returning();
+
+    await dbAdmin.insert(routeTagLinks).values([
+      { tenantId, routeId: route.id, tagId: tag!.id },
+      { tenantId, routeId: route2!.id, tagId: tag!.id },
+    ]);
+    await expect(
+      dbAdmin.insert(routeTagLinks).values({ tenantId, routeId: route.id, tagId: tag!.id }),
+    ).rejects.toThrow();
+  });
+
+  it("etiket adı kiracı içinde tekildir", async () => {
+    const { tenantId } = await seed();
+    const { routeTags } = await import("@/db/schema");
+    await dbAdmin.insert(routeTags).values({ tenantId, name: "Öncelikli" });
+    await expect(
+      dbAdmin.insert(routeTags).values({ tenantId, name: "Öncelikli" }),
+    ).rejects.toThrow();
+  });
+
+  it("güzergah silinince saat dilimleri ve etiket bağları gider", async () => {
+    const { tenantId, route } = await seed();
+    const { routeTagLinks, routeTags, routeTimeSlots } = await import("@/db/schema");
+    const [tag] = await dbAdmin.insert(routeTags).values({ tenantId, name: "X" }).returning();
+    await dbAdmin.insert(routeTimeSlots).values({ tenantId, routeId: route.id, name: "sabah" });
+    await dbAdmin.insert(routeTagLinks).values({ tenantId, routeId: route.id, tagId: tag!.id });
+
+    await dbAdmin.delete(routes).where(eq(routes.id, route.id));
+
+    expect(await dbAdmin.select().from(routeTimeSlots)).toHaveLength(0);
+    expect(await dbAdmin.select().from(routeTagLinks)).toHaveLength(0);
+    // Etiketin kendisi kalır, başka hatlarda kullanılabilir
+    expect(await dbAdmin.select().from(routeTags)).toHaveLength(1);
+  });
+
+  it("aktif fiyat bitişi boş olan kayıttır", async () => {
+    const { tenantId, route } = await seed();
+    const { routePrices } = await import("@/db/schema");
+    const { activeRoutePrice } = await import("@/modules/operasyon/guzergah/queries");
+
+    await dbAdmin.insert(routePrices).values([
+      { tenantId, routeId: route.id, price: "1000.00", validFrom: "2026-01-01", validTo: "2026-06-30" },
+      { tenantId, routeId: route.id, price: "1250.00", validFrom: "2026-07-01" },
+    ]);
+    const active = await activeRoutePrice(tenantId, route.id);
+    expect(active?.price).toBe("1250.00");
+  });
+
+  it("hiç fiyat yoksa null döner", async () => {
+    const { tenantId, route } = await seed();
+    const { activeRoutePrice } = await import("@/modules/operasyon/guzergah/queries");
+    expect(await activeRoutePrice(tenantId, route.id)).toBeNull();
+  });
+});

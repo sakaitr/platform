@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Badge,
   Button,
@@ -107,7 +108,11 @@ export default async function FirmalarPage({ searchParams }: { searchParams: Sea
         ) : (
           rows.map((c) => (
             <tr key={c.id} className="hover:bg-neutral-50">
-              <Td className="font-medium">{c.name}</Td>
+              <Td className="font-medium">
+                <Link href={`/crm/firmalar/${c.id}`} className="hover:underline">
+                  {c.name}
+                </Link>
+              </Td>
               <Td className="text-neutral-500">{c.code ?? "—"}</Td>
               <Td>{TYPE_LABEL[c.type] ?? c.type}</Td>
               <Td className="text-neutral-500">{c.phone ?? "—"}</Td>

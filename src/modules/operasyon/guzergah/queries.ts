@@ -6,6 +6,10 @@ import {
   openRoutes,
   routeAssignments,
   routePassengers,
+  routePrices,
+  routeTagLinks,
+  routeTags,
+  routeTimeSlots,
   routes,
   passengers,
   vehicles,
@@ -190,4 +194,52 @@ export async function listAllShifts(tenantId: string, scope: string[] | null) {
       .where(and(...parts))
       .orderBy(asc(companies.name), asc(companyShifts.expectedAt)),
   );
+}
+
+/* ---------- Saat dilimleri ve etiketler ---------- */
+
+export async function listTimeSlots(tenantId: string, routeId: string) {
+  return withTenant(tenantId, (tx) =>
+    tx
+      .select()
+      .from(routeTimeSlots)
+      .where(and(eq(routeTimeSlots.tenantId, tenantId), eq(routeTimeSlots.routeId, routeId)))
+      .orderBy(asc(routeTimeSlots.position), asc(routeTimeSlots.name)),
+  );
+}
+
+export async function listRouteTags(tenantId: string) {
+  return withTenant(tenantId, (tx) =>
+    tx.select().from(routeTags).where(eq(routeTags.tenantId, tenantId)).orderBy(asc(routeTags.name)),
+  );
+}
+
+export async function tagsOfRoute(tenantId: string, routeId: string) {
+  return withTenant(tenantId, (tx) =>
+    tx
+      .select({ linkId: routeTagLinks.id, id: routeTags.id, name: routeTags.name, color: routeTags.color })
+      .from(routeTagLinks)
+      .innerJoin(routeTags, eq(routeTags.id, routeTagLinks.tagId))
+      .where(and(eq(routeTagLinks.tenantId, tenantId), eq(routeTagLinks.routeId, routeId)))
+      .orderBy(asc(routeTags.name)),
+  );
+}
+
+/** Güzergahın o an geçerli fiyatı — bitiş tarihi boş olan kayıt. */
+export async function activeRoutePrice(tenantId: string, routeId: string) {
+  const rows = await withTenant(tenantId, (tx) =>
+    tx
+      .select({ price: routePrices.price, validFrom: routePrices.validFrom })
+      .from(routePrices)
+      .where(
+        and(
+          eq(routePrices.tenantId, tenantId),
+          eq(routePrices.routeId, routeId),
+          isNull(routePrices.validTo),
+        ),
+      )
+      .orderBy(desc(routePrices.validFrom))
+      .limit(1),
+  );
+  return rows[0] ?? null;
 }

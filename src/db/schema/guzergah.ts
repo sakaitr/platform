@@ -47,6 +47,7 @@ export const companyShifts = pgTable(
 );
 
 export const routeDirectionEnum = pgEnum("route_direction", ["gidis", "donus", "ikisi"]);
+export const vehicleModeEnum = pgEnum("route_vehicle_mode", ["sabit", "ayri"]);
 
 /** Güzergah — sabit hat. Duraklar jsonb: [{ ad, lat, lng, sira }]. */
 export const routes = pgTable(
@@ -62,6 +63,14 @@ export const routes = pgTable(
     direction: routeDirectionEnum("direction").notNull().default("ikisi"),
     capacity: integer("capacity"),
     shiftName: varchar("shift_name", { length: 100 }),
+    /**
+     * Araç modu: "sabit" tek araç giriş+çıkış yapar, "ayri" her yön için
+     * farklı araç atanır. Çetele tahtası buna göre satır üretir.
+     */
+    vehicleMode: vehicleModeEnum("vehicle_mode").notNull().default("sabit"),
+    /** Sürücü kadrolu değilse serbest metin tutulur. */
+    driverName: varchar("driver_name", { length: 150 }),
+    driverPhone: varchar("driver_phone", { length: 30 }),
     morningDeparture: varchar("morning_departure", { length: 5 }),
     morningArrival: varchar("morning_arrival", { length: 5 }),
     eveningDeparture: varchar("evening_departure", { length: 5 }),
@@ -353,6 +362,14 @@ export const routePlans = pgTable(
     companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
     name: varchar("name", { length: 255 }).notNull(),
     shiftName: varchar("shift_name", { length: 100 }),
+    /**
+     * Araç modu: "sabit" tek araç giriş+çıkış yapar, "ayri" her yön için
+     * farklı araç atanır. Çetele tahtası buna göre satır üretir.
+     */
+    vehicleMode: vehicleModeEnum("vehicle_mode").notNull().default("sabit"),
+    /** Sürücü kadrolu değilse serbest metin tutulur. */
+    driverName: varchar("driver_name", { length: 150 }),
+    driverPhone: varchar("driver_phone", { length: 30 }),
     direction: routeDirectionEnum("direction").notNull().default("gidis"),
     status: routePlanStatusEnum("status").notNull().default("taslak"),
     versionNo: integer("version_no").notNull().default(1),

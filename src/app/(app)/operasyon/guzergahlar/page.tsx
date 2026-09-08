@@ -54,6 +54,16 @@ export default async function GuzergahlarPage({ searchParams }: { searchParams: 
     },
     { name: "direction", label: "Yön", type: "select", options: DIRECTIONS },
     { name: "shiftName", label: "Vardiya", type: "text" },
+    {
+      name: "vehicleMode",
+      label: "Araç Modu",
+      type: "select",
+      options: [
+        { value: "sabit", label: "Sabit (aynı araç giriş+çıkış)" },
+        { value: "ayri", label: "Ayrı (her yöne farklı araç)" },
+      ],
+      hint: "Çetele tahtası buna göre satır üretir",
+    },
     { name: "capacity", label: "Kapasite", type: "number" },
     { name: "morningDeparture", label: "Sabah Kalkış", type: "time" },
     { name: "morningArrival", label: "Sabah Varış", type: "time" },
@@ -65,6 +75,8 @@ export default async function GuzergahlarPage({ searchParams }: { searchParams: 
       type: "select",
       options: araclar.map((v) => ({ value: v.id, label: v.plate })),
     },
+    { name: "driverName", label: "Sürücü Adı", type: "text", hint: "Kadrolu değilse serbest metin" },
+    { name: "driverPhone", label: "Sürücü Telefonu", type: "tel" },
     { name: "distanceKm", label: "Mesafe (km)", type: "text" },
     { name: "durationMin", label: "Süre (dk)", type: "number" },
     { name: "notes", label: "Not", type: "textarea", wide: true },
@@ -84,7 +96,7 @@ export default async function GuzergahlarPage({ searchParams }: { searchParams: 
             <EntityForm
               action={saveRouteAction}
               fields={fields}
-              values={editing ?? { isActive: true, direction: "ikisi" }}
+              values={editing ?? { isActive: true, direction: "ikisi", vehicleMode: "sabit" }}
               idValue={editing?.id}
               openLabel="Yeni Güzergah"
             />

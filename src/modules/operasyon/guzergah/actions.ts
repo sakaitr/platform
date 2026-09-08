@@ -2,7 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { and, eq, isNull } from "drizzle-orm";
-import { companyShifts, openRoutes, routeAssignments, routePassengers, routes } from "@/db/schema";
+import {
+  companyShifts,
+  openRoutes,
+  routeAssignments,
+  routePassengers,
+  routeTagLinks,
+  routeTags,
+  routeTimeSlots,
+  routes,
+} from "@/db/schema";
 import { withTenant } from "@/db/tenant";
 import { requireModule } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
@@ -23,7 +32,8 @@ const read = (formData: FormData, keys: readonly string[]): Record<string, strin
 const ROUTE_KEYS = [
   "name", "code", "companyId", "direction", "capacity", "shiftName",
   "morningDeparture", "morningArrival", "eveningDeparture", "eveningArrival",
-  "vehicleId", "driverId", "distanceKm", "durationMin", "notes",
+  "vehicleId", "driverId", "vehicleMode", "driverName", "driverPhone",
+  "distanceKm", "durationMin", "notes",
 ] as const;
 
 export async function saveRouteAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -264,4 +274,88 @@ export async function deleteShiftAction(formData: FormData): Promise<void> {
       .where(and(eq(companyShifts.tenantId, session.tenantId), eq(companyShifts.id, id))),
   );
   revalidatePath("/operasyon/vardiyalar");
+}
+
+/* ---------- Saat dilimleri ve etiketler ---------- */
+
+export async function saveTimeSlotAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireModule("guzergahlar:update", "operasyon");
+
+  const routeId = String(formData.get("routeId") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  if (!routeId || name.length === 0) return { error: "Vardiya adı gerekli." };
+
+  const clock = (value: FormDataEntryValue | null): string | null => {
+    const raw = String(value ?? "").trim();
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(raw) ? raw : null;
+  };
+
+  await withTenant(session.tenantId, (tx) =>
+    tx.insert(routeTimeSlots).values({
+      tenantId: session.tenantId,
+      routeId,
+      name,
+      arriveAt: clock(formData.get("arriveAt")),
+      departAt: clock(formData.get("departAt")),
+      position: Number(formData.get("position") ?? 0) || 0,
+    }),
+  );
+  revalidatePath(`/operasyon/guzergahlar/${routeId}`);
+  return { ok: "Saat dilimi eklendi." };
+}
+
+export async function deleteTimeSlotAction(formData: FormData): Promise<void> {
+  const session = await requireModule("guzergahlar:update", "operasyon");
+  const id = String(formData.get("id") ?? "");
+  const routeId = String(formData.get("routeId") ?? "");
+  if (!id) return;
+  await withTenant(session.tenantId, (tx) =>
+    tx
+      .delete(routeTimeSlots)
+      .where(and(eq(routeTimeSlots.tenantId, session.tenantId), eq(routeTimeSlots.id, id))),
+  );
+  revalidatePath(`/operasyon/guzergahlar/${routeId}`);
+}
+
+/** Etiket yoksa oluşturur, varsa bağlar — iki adım tek işlemde. */
+export async function attachTagAction(formData: FormData): Promise<void> {
+  const session = await requireModule("guzergahlar:update", "operasyon");
+  const routeId = String(formData.get("routeId") ?? "");
+  const name = String(formData.get("tagName") ?? "").trim();
+  if (!routeId || name.length === 0) return;
+
+  await withTenant(session.tenantId, async (tx) => {
+    const existing = await tx
+      .select({ id: routeTags.id })
+      .from(routeTags)
+      .where(and(eq(routeTags.tenantId, session.tenantId), eq(routeTags.name, name)));
+
+    const tagId =
+      existing[0]?.id ??
+      (
+        await tx
+          .insert(routeTags)
+          .values({ tenantId: session.tenantId, name })
+          .returning({ id: routeTags.id })
+      )[0]!.id;
+
+    await tx
+      .insert(routeTagLinks)
+      .values({ tenantId: session.tenantId, routeId, tagId })
+      .onConflictDoNothing();
+  });
+  revalidatePath(`/operasyon/guzergahlar/${routeId}`);
+}
+
+export async function detachTagAction(formData: FormData): Promise<void> {
+  const session = await requireModule("guzergahlar:update", "operasyon");
+  const linkId = String(formData.get("linkId") ?? "");
+  const routeId = String(formData.get("routeId") ?? "");
+  if (!linkId) return;
+  await withTenant(session.tenantId, (tx) =>
+    tx
+      .delete(routeTagLinks)
+      .where(and(eq(routeTagLinks.tenantId, session.tenantId), eq(routeTagLinks.id, linkId))),
+  );
+  revalidatePath(`/operasyon/guzergahlar/${routeId}`);
 }

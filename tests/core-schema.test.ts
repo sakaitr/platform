@@ -65,3 +65,93 @@ describe("ortak ana veri", () => {
     expect(rows[0]!.companyId).toBeNull();
   });
 });
+
+describe("firma detayı", () => {
+  beforeEach(async () => {
+    await resetDatabase();
+  });
+
+  it("sorumlular, vardiyalar, araçlar ve girişler birlikte gelir", async () => {
+    const { a } = await seed();
+    const { companyDetail } = await import("@/modules/crm/queries");
+    const { companyResponsibles, companyShifts, users, vehicleArrivals } = await import("@/db/schema");
+
+    const [firma] = await dbAdmin.insert(companies).values({ tenantId: a.id, name: "Alfa" }).returning();
+    const [user] = await dbAdmin
+      .insert(users)
+      .values({ tenantId: a.id, email: "s@x.com", name: "Sorumlu Kişi", passwordHash: "x" })
+      .returning();
+    await dbAdmin
+      .insert(companyResponsibles)
+      .values({ tenantId: a.id, companyId: firma!.id, userId: user!.id });
+    await dbAdmin
+      .insert(companyShifts)
+      .values({ tenantId: a.id, companyId: firma!.id, name: "sabah", expectedAt: "08:00" });
+    const [arac] = await dbAdmin
+      .insert(vehicles)
+      .values({ tenantId: a.id, companyId: firma!.id, plate: "34ABC01" })
+      .returning();
+    await dbAdmin.insert(vehicleArrivals).values({
+      tenantId: a.id,
+      companyId: firma!.id,
+      vehicleId: arac!.id,
+      arrivalDate: "2026-09-08",
+      shift: "sabah",
+      arrivedAt: "07:55",
+    });
+
+    const detail = await companyDetail(a.id, firma!.id, "2026-08-09");
+    expect(detail?.responsibles.map((r) => r.name)).toEqual(["Sorumlu Kişi"]);
+    expect(detail?.shifts).toHaveLength(1);
+    expect(detail?.fleet.map((v) => v.plate)).toEqual(["34ABC01"]);
+    expect(detail?.recentArrivals).toHaveLength(1);
+    expect(detail?.monthlyArrivals).toBe(1);
+  });
+
+  it("aynı kişi firmaya iki kez sorumlu atanamaz", async () => {
+    const { a } = await seed();
+    const { companyResponsibles, users } = await import("@/db/schema");
+    const [firma] = await dbAdmin.insert(companies).values({ tenantId: a.id, name: "Alfa" }).returning();
+    const [user] = await dbAdmin
+      .insert(users)
+      .values({ tenantId: a.id, email: "s@x.com", name: "Kişi", passwordHash: "x" })
+      .returning();
+
+    await dbAdmin
+      .insert(companyResponsibles)
+      .values({ tenantId: a.id, companyId: firma!.id, userId: user!.id });
+    await expect(
+      dbAdmin
+        .insert(companyResponsibles)
+        .values({ tenantId: a.id, companyId: firma!.id, userId: user!.id }),
+    ).rejects.toThrow();
+  });
+
+  it("30 gün dışındaki giriş sayıma girmez", async () => {
+    const { a } = await seed();
+    const { companyDetail } = await import("@/modules/crm/queries");
+    const { vehicleArrivals } = await import("@/db/schema");
+    const [firma] = await dbAdmin.insert(companies).values({ tenantId: a.id, name: "Alfa" }).returning();
+    const [arac] = await dbAdmin
+      .insert(vehicles)
+      .values({ tenantId: a.id, companyId: firma!.id, plate: "34ABC01" })
+      .returning();
+
+    await dbAdmin.insert(vehicleArrivals).values([
+      { tenantId: a.id, companyId: firma!.id, vehicleId: arac!.id, arrivalDate: "2026-09-08", shift: "sabah", arrivedAt: "08:00" },
+      { tenantId: a.id, companyId: firma!.id, vehicleId: arac!.id, arrivalDate: "2026-06-01", shift: "sabah", arrivedAt: "08:00" },
+    ]);
+
+    const detail = await companyDetail(a.id, firma!.id, "2026-08-09");
+    expect(detail?.monthlyArrivals).toBe(1);
+    expect(detail?.recentArrivals).toHaveLength(2);
+  });
+
+  it("olmayan firma için null döner", async () => {
+    const { a } = await seed();
+    const { companyDetail } = await import("@/modules/crm/queries");
+    expect(
+      await companyDetail(a.id, "00000000-0000-4000-8000-000000000000", "2026-01-01"),
+    ).toBeNull();
+  });
+});

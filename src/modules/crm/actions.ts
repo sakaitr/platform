@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
-import { companies } from "@/db/schema";
+import { companies, companyResponsibles } from "@/db/schema";
 import { withTenant } from "@/db/tenant";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requirePermission } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { isInScope } from "@/lib/scope";
 import { CompanySchema } from "./validators";
@@ -79,4 +79,36 @@ export async function deleteCompanyAction(formData: FormData): Promise<void> {
     entityId: id,
   });
   revalidatePath("/crm/firmalar");
+}
+
+/** Firmaya sorumlu atar — birden çok kişi olabilir. */
+export async function addResponsibleAction(formData: FormData): Promise<void> {
+  const session = await requirePermission("firmalar:update");
+  const companyId = String(formData.get("companyId") ?? "");
+  const userId = String(formData.get("userId") ?? "");
+  if (!companyId || !userId) return;
+  if (!isInScope(session.scope, companyId)) return;
+
+  await withTenant(session.tenantId, (tx) =>
+    tx
+      .insert(companyResponsibles)
+      .values({ tenantId: session.tenantId, companyId, userId })
+      .onConflictDoNothing(),
+  );
+  revalidatePath(`/crm/firmalar/${companyId}`);
+}
+
+export async function removeResponsibleAction(formData: FormData): Promise<void> {
+  const session = await requirePermission("firmalar:update");
+  const id = String(formData.get("id") ?? "");
+  const companyId = String(formData.get("companyId") ?? "");
+  if (!id) return;
+  await withTenant(session.tenantId, (tx) =>
+    tx
+      .delete(companyResponsibles)
+      .where(
+        and(eq(companyResponsibles.tenantId, session.tenantId), eq(companyResponsibles.id, id)),
+      ),
+  );
+  revalidatePath(`/crm/firmalar/${companyId}`);
 }

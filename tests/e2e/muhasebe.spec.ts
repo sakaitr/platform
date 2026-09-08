@@ -124,3 +124,34 @@ test("turizm kiracısında irsaliye kapalı", async ({ page }) => {
   await page.goto("/muhasebe/irsaliyeler");
   await expect(page).toHaveURL("/muhasebe/hareketler");
 });
+
+test("firma detayı sorumlu, vardiya, araç ve giriş geçmişini gösterir", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+  await page.goto("/crm/firmalar");
+
+  await page.getByRole("link", { name: "Alfa Sanayi" }).click();
+  await page.waitForURL(/\/crm\/firmalar\/[0-9a-f-]{36}$/);
+  const url = page.url();
+
+  await expect(page.getByRole("heading", { name: "Sorumlular" })).toBeVisible();
+  await expect(page.getByText("Henüz sorumlu atanmamış")).toBeVisible();
+
+  // Sorumlu ata
+  await page.getByRole("button", { name: "Sorumlu Ata" }).click();
+  await page.waitForLoadState("networkidle");
+  await page.goto(url);
+  await expect(page.getByText("Henüz sorumlu atanmamış")).toHaveCount(0);
+
+  // Vardiya ekle
+  await page.getByRole("button", { name: "Vardiya Ekle" }).click();
+  const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+  await form.getByLabel("Vardiya Adı").fill("gece");
+  await form.getByLabel("Beklenen Saat").fill("23:00");
+  await form.getByRole("button", { name: "Kaydet" }).click();
+  await expect(form.getByText("Vardiya eklendi.")).toBeVisible();
+
+  await page.goto(url);
+  await expect(page.getByRole("row").filter({ hasText: "gece" })).toBeVisible();
+  // Firmanın aracı listede
+  await expect(page.getByRole("link", { name: "34ABC01" })).toBeVisible();
+});
