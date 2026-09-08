@@ -1,6 +1,9 @@
-import { and, asc, count, desc, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import {
+  announcements,
+  blacklist,
   companies,
+  contacts,
   driverEvaluations,
   driverRecords,
   drivers,
@@ -328,4 +331,75 @@ export async function portalUserCompanyIds(tenantId: string, portalUserId: strin
       ),
   );
   return rows.map((r) => r.companyId);
+}
+
+/* ---------- Rehber, kara liste, duyuru ---------- */
+
+export async function listContacts(tenantId: string, q?: string) {
+  const parts: SQL[] = [eq(contacts.tenantId, tenantId)];
+  if (q) {
+    const like = `%${q}%`;
+    parts.push(or(ilike(contacts.name, like), ilike(contacts.phone, like), ilike(contacts.category, like))!);
+  }
+  return withTenant(tenantId, (tx) =>
+    tx
+      .select({
+        id: contacts.id,
+        name: contacts.name,
+        category: contacts.category,
+        title: contacts.title,
+        phone: contacts.phone,
+        email: contacts.email,
+        notes: contacts.notes,
+        companyName: companies.name,
+      })
+      .from(contacts)
+      .leftJoin(companies, eq(companies.id, contacts.companyId))
+      .where(and(...parts))
+      .orderBy(asc(contacts.category), asc(contacts.name)),
+  );
+}
+
+export async function listBlacklist(tenantId: string, active?: boolean) {
+  const parts: SQL[] = [eq(blacklist.tenantId, tenantId)];
+  if (active !== undefined) parts.push(eq(blacklist.isActive, active));
+  return withTenant(tenantId, (tx) =>
+    tx
+      .select()
+      .from(blacklist)
+      .where(and(...parts))
+      .orderBy(desc(blacklist.addedOn)),
+  );
+}
+
+/** Kara liste kontrolü — yolcu/sürücü eklerken uyarı için. */
+export async function isBlacklisted(
+  tenantId: string,
+  input: { idNumber?: string | null; plate?: string | null },
+): Promise<boolean> {
+  const checks: SQL[] = [];
+  if (input.idNumber) checks.push(eq(blacklist.idNumber, input.idNumber));
+  if (input.plate) checks.push(eq(blacklist.plate, input.plate));
+  if (checks.length === 0) return false;
+
+  const rows = await withTenant(tenantId, (tx) =>
+    tx
+      .select({ id: blacklist.id })
+      .from(blacklist)
+      .where(and(eq(blacklist.tenantId, tenantId), eq(blacklist.isActive, true), or(...checks)!))
+      .limit(1),
+  );
+  return rows.length > 0;
+}
+
+export async function listAnnouncements(tenantId: string, onlyActive = false) {
+  const parts: SQL[] = [eq(announcements.tenantId, tenantId)];
+  if (onlyActive) parts.push(eq(announcements.isActive, true));
+  return withTenant(tenantId, (tx) =>
+    tx
+      .select()
+      .from(announcements)
+      .where(and(...parts))
+      .orderBy(desc(announcements.createdAt)),
+  );
 }

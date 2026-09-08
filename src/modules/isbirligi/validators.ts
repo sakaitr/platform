@@ -123,3 +123,39 @@ export const PortalUserSchema = z.object({
   companyIds: z.array(z.string().uuid()).min(1, "En az bir firma seçin."),
   isActive: z.coerce.boolean().catch(true),
 });
+
+export const ContactSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(2, "Ad gerekli.").max(200),
+  category: text(50),
+  title: text(150),
+  phone: text(30),
+  email: text(255),
+  companyId: uuidOrNull,
+  notes: text(1000),
+});
+
+export const BlacklistSchema = z
+  .object({
+    id: z.string().uuid().optional(),
+    fullName: text(200),
+    idNumber: text(20),
+    plate: text(20),
+    reason: z.string().trim().min(5, "Gerekçe en az 5 karakter olmalı.").max(2000),
+    addedOn: day,
+    isActive: z.coerce.boolean().catch(true),
+  })
+  .refine((v) => v.fullName !== null || v.plate !== null, {
+    message: "Ad soyad ya da plakadan biri girilmeli.",
+    path: ["fullName"],
+  });
+
+export const AnnouncementSchema = z.object({
+  id: z.string().uuid().optional(),
+  title: z.string().trim().min(3, "Başlık gerekli.").max(255),
+  body: z.string().trim().min(5, "İçerik gerekli.").max(8000),
+  showInPortal: z.coerce.boolean().catch(false),
+  startsOn: dayOrNull,
+  endsOn: dayOrNull,
+  isActive: z.coerce.boolean().catch(true),
+});

@@ -352,3 +352,80 @@ export type LeaveRequest = typeof leaveRequests.$inferSelect;
 export type DriverRecord = typeof driverRecords.$inferSelect;
 export type DriverEvaluation = typeof driverEvaluations.$inferSelect;
 export type PortalUser = typeof portalUsers.$inferSelect;
+
+/* ---------- Rehber ve kara liste ---------- */
+
+/** Kurum rehberi — hastane, jandarma, servis, tedarikçi telefonları. */
+export const contacts = pgTable(
+  "contacts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 200 }).notNull(),
+    category: varchar("category", { length: 50 }),
+    title: varchar("title", { length: 150 }),
+    phone: varchar("phone", { length: 30 }),
+    email: varchar("email", { length: 255 }),
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("contacts_tenant_idx").on(t.tenantId),
+    nameIdx: index("contacts_name_idx").on(t.tenantId, t.name),
+  }),
+);
+
+/**
+ * Kara liste — bir daha çalışılmayacak kişi/araç.
+ * Sürücü ya da plaka serbest metin: kaydı silinmiş biri de listede kalabilmeli.
+ */
+export const blacklist = pgTable(
+  "blacklist",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    fullName: varchar("full_name", { length: 200 }),
+    idNumber: varchar("id_number", { length: 20 }),
+    plate: varchar("plate", { length: 20 }),
+    reason: text("reason").notNull(),
+    addedOn: date("added_on").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ tenantIdx: index("blacklist_tenant_idx").on(t.tenantId) }),
+);
+
+/** Duyuru — personele ve/veya müşteri portalına gösterilir. */
+export const announcements = pgTable(
+  "announcements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    title: varchar("title", { length: 255 }).notNull(),
+    body: text("body").notNull(),
+    /** Portal kullanıcıları da görsün mü. */
+    showInPortal: boolean("show_in_portal").notNull().default(false),
+    startsOn: date("starts_on"),
+    endsOn: date("ends_on"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("announcements_tenant_idx").on(t.tenantId),
+    activeIdx: index("announcements_active_idx").on(t.tenantId, t.isActive),
+  }),
+);
+
+export type Contact = typeof contacts.$inferSelect;
+export type BlacklistEntry = typeof blacklist.$inferSelect;
+export type Announcement = typeof announcements.$inferSelect;

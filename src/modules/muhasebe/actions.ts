@@ -522,9 +522,21 @@ export async function saveRoutePriceAction(_prev: ActionState, formData: FormDat
   );
   if (!parsed.success) return { error: parsed.error.issues[0]!.message };
 
-  await withTenant(session.tenantId, (tx) =>
-    tx.insert(routePrices).values({ ...parsed.data, tenantId: session.tenantId }),
-  );
+  await withTenant(session.tenantId, async (tx) => {
+    // Aynı güzergah + tedarikçi için açık fiyat varsa yeni fiyatın başladığı
+    // gün kapatılır; iki fiyat aynı anda geçerli olmaz.
+    await tx
+      .update(routePrices)
+      .set({ validTo: parsed.data.validFrom })
+      .where(
+        and(
+          eq(routePrices.tenantId, session.tenantId),
+          eq(routePrices.routeId, parsed.data.routeId),
+          isNull(routePrices.validTo),
+        ),
+      );
+    await tx.insert(routePrices).values({ ...parsed.data, tenantId: session.tenantId });
+  });
   revalidatePath("/muhasebe/guzergah-fiyatlari");
   return { ok: "Fiyat kaydedildi." };
 }

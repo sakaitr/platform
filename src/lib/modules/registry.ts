@@ -59,6 +59,12 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     icon: "ListChecks",
     href: "/gorevler",
     permission: "gorevler:read",
+    children: [
+      { label: "Görevler", href: "/gorevler" },
+      { label: "Duyurular", href: "/duyurular" },
+      { label: "Rehber", href: "/rehber" },
+      { label: "Kara Liste", href: "/rehber/kara-liste" },
+    ],
   },
   {
     key: "destek",
@@ -102,6 +108,7 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
       { label: "Bütçe", href: "/muhasebe/butce" },
       { label: "İşletenler", href: "/muhasebe/isletenler", capability: "muhasebe.hakedis" },
       { label: "Ücretlendirme", href: "/muhasebe/ucretlendirme", capability: "muhasebe.hakedis" },
+      { label: "Güzergah Fiyatları", href: "/muhasebe/guzergah-fiyatlari", capability: "muhasebe.hakedis" },
       { label: "Hakedişler", href: "/muhasebe/hakedis", capability: "muhasebe.hakedis" },
       { label: "Mutabakat", href: "/muhasebe/mutabakat", capability: "muhasebe.mutabakat" },
     ],

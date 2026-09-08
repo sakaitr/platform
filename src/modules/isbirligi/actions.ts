@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import {
+  announcements,
+  blacklist,
+  contacts,
   driverEvaluations,
   driverRecords,
   leaveRequests,
@@ -21,6 +24,9 @@ import { writeAuditLog } from "@/lib/audit";
 import { nextNumber } from "@/lib/numbering";
 import { isInScope } from "@/lib/scope";
 import {
+  AnnouncementSchema,
+  BlacklistSchema,
+  ContactSchema,
   DriverEvaluationSchema,
   DriverRecordSchema,
   LeaveRequestSchema,
@@ -483,4 +489,112 @@ export async function savePortalUserAction(_prev: ActionState, formData: FormDat
 
   revalidatePath("/admin/portal");
   return { ok: id ? "Portal kullanıcısı güncellendi." : "Portal kullanıcısı oluşturuldu." };
+}
+
+/* ---------- Rehber, kara liste, duyuru ---------- */
+
+export async function saveContactAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requirePermission("notlar:create");
+
+  const parsed = ContactSchema.safeParse({
+    ...read(formData, ["name", "category", "title", "phone", "email", "companyId", "notes"]),
+    id: formData.get("id") || undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]!.message };
+  const { id, ...values } = parsed.data;
+
+  await withTenant(session.tenantId, async (tx) => {
+    if (id) {
+      await tx
+        .update(contacts)
+        .set(values)
+        .where(and(eq(contacts.tenantId, session.tenantId), eq(contacts.id, id)));
+    } else {
+      await tx.insert(contacts).values({ ...values, tenantId: session.tenantId });
+    }
+  });
+  revalidatePath("/rehber");
+  return { ok: id ? "Kayıt güncellendi." : "Rehbere eklendi." };
+}
+
+export async function deleteContactAction(formData: FormData): Promise<void> {
+  const session = await requirePermission("notlar:delete");
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await withTenant(session.tenantId, (tx) =>
+    tx.delete(contacts).where(and(eq(contacts.tenantId, session.tenantId), eq(contacts.id, id))),
+  );
+  revalidatePath("/rehber");
+}
+
+export async function saveBlacklistAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requirePermission("notlar:create");
+
+  const parsed = BlacklistSchema.safeParse({
+    ...read(formData, ["fullName", "idNumber", "plate", "reason", "addedOn"]),
+    id: formData.get("id") || undefined,
+    isActive: formData.get("isActive") === "on",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]!.message };
+  const { id, ...values } = parsed.data;
+
+  await withTenant(session.tenantId, async (tx) => {
+    if (id) {
+      await tx
+        .update(blacklist)
+        .set(values)
+        .where(and(eq(blacklist.tenantId, session.tenantId), eq(blacklist.id, id)));
+    } else {
+      await tx.insert(blacklist).values({ ...values, tenantId: session.tenantId, createdBy: session.userId });
+    }
+  });
+  await writeAuditLog({
+    tenantId: session.tenantId,
+    userId: session.userId,
+    event: id ? "blacklist.updated" : "blacklist.added",
+    entityType: "blacklist",
+    entityId: id,
+  });
+  revalidatePath("/rehber/kara-liste");
+  return { ok: id ? "Kayıt güncellendi." : "Kara listeye eklendi." };
+}
+
+export async function saveAnnouncementAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requirePermission("notlar:create");
+
+  const parsed = AnnouncementSchema.safeParse({
+    ...read(formData, ["title", "body", "startsOn", "endsOn"]),
+    id: formData.get("id") || undefined,
+    showInPortal: formData.get("showInPortal") === "on",
+    isActive: formData.get("isActive") === "on",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]!.message };
+  const { id, ...values } = parsed.data;
+
+  await withTenant(session.tenantId, async (tx) => {
+    if (id) {
+      await tx
+        .update(announcements)
+        .set({ ...values, updatedAt: new Date() })
+        .where(and(eq(announcements.tenantId, session.tenantId), eq(announcements.id, id)));
+    } else {
+      await tx
+        .insert(announcements)
+        .values({ ...values, tenantId: session.tenantId, createdBy: session.userId });
+    }
+  });
+  revalidatePath("/duyurular");
+  return { ok: id ? "Duyuru güncellendi." : "Duyuru yayımlandı." };
+}
+
+export async function deleteAnnouncementAction(formData: FormData): Promise<void> {
+  const session = await requirePermission("notlar:delete");
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await withTenant(session.tenantId, (tx) =>
+    tx
+      .delete(announcements)
+      .where(and(eq(announcements.tenantId, session.tenantId), eq(announcements.id, id))),
+  );
+  revalidatePath("/duyurular");
 }

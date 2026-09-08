@@ -11,6 +11,7 @@ import {
   ledgerEntries,
   pricingForms,
   reconciliations,
+  routePrices,
   routes,
   tripLogs,
   vehicleOperators,
@@ -467,4 +468,29 @@ export async function getDeliveryNote(tenantId: string, id: string) {
     tx.select().from(deliveryNotes).where(and(eq(deliveryNotes.tenantId, tenantId), eq(deliveryNotes.id, id))),
   );
   return rows[0] ?? null;
+}
+
+/* ---------- Güzergah fiyatları ---------- */
+
+export async function listRoutePrices(tenantId: string, routeId?: string) {
+  const parts: SQL[] = [eq(routePrices.tenantId, tenantId)];
+  if (routeId) parts.push(eq(routePrices.routeId, routeId));
+
+  return withTenant(tenantId, (tx) =>
+    tx
+      .select({
+        id: routePrices.id,
+        routeName: routes.name,
+        price: routePrices.price,
+        currency: routePrices.currency,
+        validFrom: routePrices.validFrom,
+        validTo: routePrices.validTo,
+        companyName: sql<string | null>`(select name from companies where id = ${routePrices.companyId})`,
+        supplierName: sql<string | null>`(select name from companies where id = ${routePrices.supplierId})`,
+      })
+      .from(routePrices)
+      .innerJoin(routes, eq(routes.id, routePrices.routeId))
+      .where(and(...parts))
+      .orderBy(desc(routePrices.validFrom)),
+  );
 }

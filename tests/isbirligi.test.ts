@@ -13,7 +13,7 @@ import {
   tenants,
   users,
 } from "@/db/schema";
-import { listTicketMessages, listPortalUsers, ticketSummary } from "@/modules/isbirligi/queries";
+import { listPortalUsers, listTicketMessages, ticketSummary } from "@/modules/isbirligi/queries";
 import { resetDatabase } from "./setup";
 
 async function seed() {
@@ -210,5 +210,77 @@ describe("sürücü sicili", () => {
     await dbAdmin.delete(drivers).where(eq(drivers.id, driver!.id));
     const rows = await dbAdmin.select().from(driverRecords);
     expect(rows).toHaveLength(0);
+  });
+});
+
+describe("kara liste", () => {
+  beforeEach(async () => {
+    await resetDatabase();
+  });
+
+  it("TC ile eşleşme yakalanır", async () => {
+    const { tenantId } = await seed();
+    const { blacklist } = await import("@/db/schema");
+    const { isBlacklisted } = await import("@/modules/isbirligi/queries");
+    await dbAdmin.insert(blacklist).values({
+      tenantId,
+      fullName: "Kara Listedeki",
+      idNumber: "12345678901",
+      reason: "Tekrarlayan devamsızlık",
+      addedOn: "2026-09-01",
+    });
+    expect(await isBlacklisted(tenantId, { idNumber: "12345678901" })).toBe(true);
+    expect(await isBlacklisted(tenantId, { idNumber: "99999999999" })).toBe(false);
+  });
+
+  it("plaka ile eşleşme yakalanır", async () => {
+    const { tenantId } = await seed();
+    const { blacklist } = await import("@/db/schema");
+    const { isBlacklisted } = await import("@/modules/isbirligi/queries");
+    await dbAdmin.insert(blacklist).values({
+      tenantId,
+      plate: "34KARA01",
+      reason: "Hasarlı teslim",
+      addedOn: "2026-09-01",
+    });
+    expect(await isBlacklisted(tenantId, { plate: "34KARA01" })).toBe(true);
+  });
+
+  it("kaldırılmış kayıt eşleşmez", async () => {
+    const { tenantId } = await seed();
+    const { blacklist } = await import("@/db/schema");
+    const { isBlacklisted } = await import("@/modules/isbirligi/queries");
+    await dbAdmin.insert(blacklist).values({
+      tenantId,
+      plate: "34KARA01",
+      reason: "Eski kayıt",
+      addedOn: "2026-01-01",
+      isActive: false,
+    });
+    expect(await isBlacklisted(tenantId, { plate: "34KARA01" })).toBe(false);
+  });
+
+  it("hiçbir ölçüt verilmezse eşleşme yok", async () => {
+    const { tenantId } = await seed();
+    const { isBlacklisted } = await import("@/modules/isbirligi/queries");
+    expect(await isBlacklisted(tenantId, {})).toBe(false);
+  });
+
+  it("başka kiracının kara listesi sızmaz", async () => {
+    const a = await seed();
+    const [tenantB] = await dbAdmin
+      .insert(tenants)
+      .values({ name: "B", slug: "b", sectorPack: "lojistik", sectorPackVersion: "1.0.0" })
+      .returning();
+    const { blacklist } = await import("@/db/schema");
+    const { isBlacklisted } = await import("@/modules/isbirligi/queries");
+    await dbAdmin.insert(blacklist).values({
+      tenantId: tenantB!.id,
+      plate: "34KARA01",
+      reason: "B kiracısının kaydı",
+      addedOn: "2026-09-01",
+    });
+    expect(await isBlacklisted(a.tenantId, { plate: "34KARA01" })).toBe(false);
+    expect(await isBlacklisted(tenantB!.id, { plate: "34KARA01" })).toBe(true);
   });
 });
