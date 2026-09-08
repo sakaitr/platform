@@ -38,8 +38,9 @@ test("araç eklenir ve listede görünür", async ({ page }) => {
   await login(page, "lojistik@e2e.test");
   await page.goto("/filo/araclar");
   await page.getByRole("button", { name: /Yeni Araç/ }).click();
-  await page.getByLabel("Plaka").fill("06 test 99");
-  await page.getByRole("button", { name: "Kaydet" }).click();
+  const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+  await form.getByLabel("Plaka", { exact: true }).fill("06 test 99");
+  await form.getByRole("button", { name: "Kaydet" }).click();
   await expect(page.getByText("06TEST99")).toBeVisible();
 });
 
@@ -47,8 +48,9 @@ test("aynı plaka ikinci kez eklenince Türkçe hata döner", async ({ page }) =
   await login(page, "kisitli-owner@e2e.test");
   await page.goto("/filo/araclar");
   await page.getByRole("button", { name: /Yeni Araç/ }).click();
-  await page.getByLabel("Plaka").fill("34ABC01");
-  await page.getByRole("button", { name: "Kaydet" }).click();
+  const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+  await form.getByLabel("Plaka", { exact: true }).fill("34ABC01");
+  await form.getByRole("button", { name: "Kaydet" }).click();
   await expect(page.getByText("34ABC01 plakası zaten kayıtlı.")).toBeVisible();
 });
 
