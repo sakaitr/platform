@@ -76,7 +76,7 @@ export const SECTOR_PACKS: Record<string, SectorPack> = {
     key: "turizm",
     name: "Turizm / Personel Taşıma",
     version: "1.0.0",
-    modules: ["dashboard", "muhasebe", "filo", "admin"],
+    modules: ["dashboard", "raporlar", "muhasebe", "filo", "admin"],
     capabilities: ["muhasebe.hakedis", "muhasebe.mutabakat"],
     terminology: {
       customer: "Firma",
@@ -123,7 +123,7 @@ export const SECTOR_PACKS: Record<string, SectorPack> = {
     key: "lojistik",
     name: "Lojistik / Nakliye",
     version: "1.0.0",
-    modules: ["dashboard", "muhasebe", "filo", "admin"],
+    modules: ["dashboard", "raporlar", "muhasebe", "filo", "admin"],
     capabilities: ["muhasebe.irsaliye"],
     terminology: {
       customer: "Müşteri",
@@ -171,7 +171,7 @@ export const SECTOR_PACKS: Record<string, SectorPack> = {
     key: "pilates",
     name: "Pilates / Fitness Stüdyo",
     version: "1.0.0",
-    modules: ["dashboard", "muhasebe", "admin"],
+    modules: ["dashboard", "raporlar", "muhasebe", "admin"],
     capabilities: ["randevu.paket", "randevu.bekleme_listesi"],
     terminology: {
       customer: "Üye",
@@ -205,7 +205,7 @@ export const SECTOR_PACKS: Record<string, SectorPack> = {
     key: "oto_servis",
     name: "Oto Servis",
     version: "1.0.0",
-    modules: ["dashboard", "muhasebe", "admin"],
+    modules: ["dashboard", "raporlar", "muhasebe", "admin"],
     capabilities: ["randevu.parca_stok", "randevu.proforma"],
     terminology: {
       customer: "Araç Sahibi",

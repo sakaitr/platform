@@ -26,6 +26,13 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     permission: "dashboard:read",
   },
   {
+    key: "raporlar",
+    label: "Raporlar",
+    icon: "FileBarChart",
+    href: "/raporlar",
+    permission: "raporlar:read",
+  },
+  {
     key: "muhasebe",
     label: "Muhasebe",
     icon: "Calculator",

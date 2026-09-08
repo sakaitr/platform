@@ -4,6 +4,6 @@
  * YENİ MODÜL EKLERKEN: hem buraya hem MODULE_REGISTRY'ye eklenir.
  * tests/licensing.test.ts bu ikisinin senkronunu doğrular.
  */
-export const MODULE_KEYS = ["dashboard", "muhasebe", "filo", "admin"] as const;
+export const MODULE_KEYS = ["dashboard", "raporlar", "muhasebe", "filo", "admin"] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
