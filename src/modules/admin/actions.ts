@@ -1,8 +1,10 @@
 "use server";
 
-import { revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { and, eq } from "drizzle-orm";
-import { terminologyOverrides, users } from "@/db/schema";
+import { tenantCapabilities, tenantModules, terminologyOverrides, users } from "@/db/schema";
+import { dbAdmin } from "@/db/admin";
+import { MODULE_KEYS } from "@/lib/modules/keys";
 import { withTenant } from "@/db/tenant";
 import { createInvite, requirePermission, revokeUserSessions } from "@/lib/auth";
 import { setUserScope } from "@/lib/scope";
@@ -144,4 +146,65 @@ export async function setUserScopeAction(formData: FormData): Promise<void> {
   });
 
   revalidateTag(tenantTag(session.tenantId, "users"), "max");
+}
+
+/* ---------- Modül lisansları ---------- */
+
+/** Modülü kiracıya açar/kapatır. Kapatmak veriyi silmez, erişimi keser. */
+export async function toggleModuleAction(formData: FormData): Promise<void> {
+  const session = await requirePermission("modules:assign");
+  const moduleKey = String(formData.get("moduleKey") ?? "");
+  const enable = formData.get("enable") === "1";
+  if (!MODULE_KEYS.includes(moduleKey as (typeof MODULE_KEYS)[number])) return;
+
+  if (enable) {
+    await dbAdmin
+      .insert(tenantModules)
+      .values({ tenantId: session.tenantId, moduleKey, status: "active" })
+      .onConflictDoUpdate({
+        target: [tenantModules.tenantId, tenantModules.moduleKey],
+        set: { status: "active", updatedAt: new Date() },
+      });
+  } else {
+    await dbAdmin
+      .delete(tenantModules)
+      .where(
+        and(eq(tenantModules.tenantId, session.tenantId), eq(tenantModules.moduleKey, moduleKey)),
+      );
+  }
+
+  await writeAuditLog({
+    tenantId: session.tenantId,
+    userId: session.userId,
+    event: enable ? "module.enabled" : "module.disabled",
+    entityType: "module",
+    metadata: { moduleKey },
+  });
+  revalidateTag(tenantTag(session.tenantId, "access"), "max");
+  revalidatePath("/admin/moduller");
+}
+
+/** Alt yeteneği açar/kapatır — sektör paketinin üstüne kiracı ayarı. */
+export async function toggleCapabilityAction(formData: FormData): Promise<void> {
+  const session = await requirePermission("modules:assign");
+  const capabilityKey = String(formData.get("capabilityKey") ?? "");
+  const enable = formData.get("enable") === "1";
+  if (!capabilityKey) return;
+
+  await dbAdmin
+    .insert(tenantCapabilities)
+    .values({ tenantId: session.tenantId, capabilityKey, enabled: enable })
+    .onConflictDoUpdate({
+      target: [tenantCapabilities.tenantId, tenantCapabilities.capabilityKey],
+      set: { enabled: enable },
+    });
+
+  await writeAuditLog({
+    tenantId: session.tenantId,
+    userId: session.userId,
+    event: enable ? "capability.enabled" : "capability.disabled",
+    entityType: "capability",
+    metadata: { capabilityKey },
+  });
+  revalidatePath("/admin/moduller");
 }

@@ -138,6 +138,8 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     permission: "users:read",
     children: [
       { label: "Kullanıcılar", href: "/admin/users" },
+      { label: "Modüller", href: "/admin/moduller" },
+      { label: "Denetim İzi", href: "/admin/denetim" },
       { label: "Roller", href: "/admin/roller" },
       { label: "Firma Kapsamı", href: "/admin/kapsam" },
       { label: "Terimler", href: "/admin/terminoloji" },

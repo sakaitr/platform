@@ -34,3 +34,40 @@ test("owner rol listesini ve izinlerini görür", async ({ page }) => {
   // İzin rozetleri render ediliyor
   await expect(page.getByText("dashboard:read").first()).toBeVisible();
 });
+
+test("operatör olmayan kullanıcı operatör paneline giremez", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("E-posta").fill("kisitli-owner@e2e.test");
+  await page.getByLabel("Şifre").fill("E2eTest1234!");
+  await page.getByRole("button", { name: "Giriş Yap" }).click();
+  await expect(page).toHaveURL("/dashboard");
+
+  // Kiracının sahibi bile operatör değil: liste ortam değişkeninden gelir
+  await expect(page.getByRole("link", { name: "Operatör", exact: true })).toHaveCount(0);
+  await page.goto("/operator");
+  await expect(page).toHaveURL("/dashboard");
+});
+
+test("modül kapatılınca menüden ve URL'den erişim kesilir", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("E-posta").fill("kisitli-owner@e2e.test");
+  await page.getByLabel("Şifre").fill("E2eTest1234!");
+  await page.getByRole("button", { name: "Giriş Yap" }).click();
+  await expect(page).toHaveURL("/dashboard");
+
+  await page.goto("/admin/moduller");
+  const row = page.getByRole("row").filter({ hasText: "Görevler" });
+  await row.getByRole("button", { name: "Kapat" }).click();
+  await page.waitForLoadState("networkidle");
+
+  await page.goto("/gorevler");
+  await expect(page).toHaveURL("/dashboard");
+  await expect(page.getByRole("link", { name: "Görevler", exact: true })).toHaveCount(0);
+
+  // Geri aç: veri kaybı olmadan erişim döner
+  await page.goto("/admin/moduller");
+  await page.getByRole("row").filter({ hasText: "Görevler" }).getByRole("button", { name: "Aç" }).click();
+  await page.waitForLoadState("networkidle");
+  await page.goto("/gorevler");
+  await expect(page).toHaveURL("/gorevler");
+});

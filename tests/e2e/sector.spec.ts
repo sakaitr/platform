@@ -11,8 +11,8 @@ async function login(page: Page, email: string): Promise<void> {
 test("lojistik kiracısı irsaliye menüsünü görür, hakediş görmez", async ({ page }) => {
   await login(page, "lojistik@e2e.test");
   await expect(page.getByText("Lojistik / Nakliye")).toBeVisible();
-  await expect(page.getByRole("link", { name: "İrsaliyeler" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Hakedişler" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "İrsaliyeler", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Hakedişler", exact: true })).toHaveCount(0);
 });
 
 test("pilates kiracısı farklı terimler görür", async ({ page }) => {

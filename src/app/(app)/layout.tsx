@@ -7,6 +7,7 @@ import { getTenantAccess } from "@/lib/licensing";
 import { buildNavigation, visibleChildren } from "@/lib/modules/registry";
 import { getPack } from "@/lib/sector/install";
 import { getTerms } from "@/lib/sector/terminology";
+import { isOperator } from "@/lib/operator";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireAuth();
@@ -28,6 +29,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       children: visibleChildren(module, access).map((c) => ({ label: c.label, href: c.href })),
     };
   });
+
+  // Operatör bağlantısı kiracı modülü değil — kiracının rolleri bunu veremez.
+  if (isOperator(session.email)) {
+    items.push({
+      key: "operator",
+      label: "Operatör",
+      icon: "ShieldCheck",
+      href: "/operator",
+      children: [],
+    });
+  }
 
   return (
     <div className="flex h-screen">

@@ -11,8 +11,10 @@ async function login(page: Page, email: string): Promise<void> {
 test("owner rapor listesini görür", async ({ page }) => {
   await login(page, "kisitli-owner@e2e.test");
   await page.goto("/raporlar");
-  await expect(page.getByText("Kullanıcı Listesi")).toBeVisible();
-  await expect(page.getByText("Denetim İzi")).toBeVisible();
+  // Yan menüde de aynı adlar var; rapor listesine daralt.
+  const main = page.getByRole("main");
+  await expect(main.getByText("Kullanıcı Listesi")).toBeVisible();
+  await expect(main.getByText("Denetim İzi")).toBeVisible();
 });
 
 test("CSV indirilebiliyor — Excel uyumlu BOM ve başlık", async ({ page }) => {
