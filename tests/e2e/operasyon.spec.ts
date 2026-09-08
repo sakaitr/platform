@@ -382,3 +382,58 @@ test("aktif plan silinemez", async ({ page }) => {
     await expect(activeRows.first().getByRole("button", { name: "Sil" })).toHaveCount(0);
   }
 });
+
+test("çetele tahtası günün hatlarını gösterir ve toplu çetele açar", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+
+  // Güzergah oluştur ve araç ata
+  await page.goto("/operasyon/guzergahlar");
+  await page.getByRole("button", { name: "Yeni Güzergah" }).click();
+  let form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+  await form.getByLabel("Güzergah Adı").fill("E2E Çetele Hattı");
+  await form.getByLabel("Vardiya").fill("sabah");
+  await form.getByLabel("Yön").selectOption("gidis");
+  await form.getByRole("button", { name: "Kaydet" }).click();
+  await page.waitForLoadState("networkidle");
+
+  await page.goto("/operasyon/guzergahlar");
+  await page.getByRole("link", { name: "E2E Çetele Hattı" }).click();
+  await page.waitForURL(/\/operasyon\/guzergahlar\/[0-9a-f-]{36}$/);
+  await page.getByRole("button", { name: "Araç Ata" }).click();
+  form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+  await form.getByLabel("Araç").selectOption({ label: "34XYZ02" });
+  await form.getByLabel("Başlangıç").fill("2026-01-01");
+  await form.getByRole("button", { name: "Kaydet" }).click();
+  await expect(form.getByText("Atama kaydedildi.")).toBeVisible();
+
+  // Tahtada satır çıkmalı, araçla birlikte
+  await page.goto("/operasyon/cetele?gun=2026-04-06");
+  const row = page.getByRole("row").filter({ hasText: "E2E Çetele Hattı" });
+  await expect(row.getByText("34XYZ02")).toBeVisible();
+  await expect(row.getByText("İşlenmedi")).toBeVisible();
+
+  await page.getByRole("button", { name: /Seçilenlerin Çetelesini Aç/ }).click();
+  await page.waitForLoadState("networkidle");
+
+  await page.goto("/operasyon/cetele?gun=2026-04-06");
+  await expect(
+    page.getByRole("row").filter({ hasText: "E2E Çetele Hattı" }).getByText("Bekliyor"),
+  ).toBeVisible();
+});
+
+test("araç atanmamış hat toplu açmaya girmez", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+
+  await page.goto("/operasyon/guzergahlar");
+  await page.getByRole("button", { name: "Yeni Güzergah" }).click();
+  const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+  await form.getByLabel("Güzergah Adı").fill("E2E Araçsız Hat");
+  await form.getByLabel("Yön").selectOption("gidis");
+  await form.getByRole("button", { name: "Kaydet" }).click();
+  await page.waitForLoadState("networkidle");
+
+  await page.goto("/operasyon/cetele?gun=2026-04-07");
+  const row = page.getByRole("row").filter({ hasText: "E2E Araçsız Hat" });
+  await expect(row.getByText("araç atanmamış")).toBeVisible();
+  await expect(row.getByRole("checkbox")).toHaveCount(0);
+});

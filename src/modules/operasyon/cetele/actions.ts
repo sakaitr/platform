@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
-import { tripLogs } from "@/db/schema";
+import { routes, tripLogs } from "@/db/schema";
 import { withTenant } from "@/db/tenant";
 import { requireModule } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
@@ -128,5 +128,71 @@ export async function deleteTripLogAction(formData: FormData): Promise<void> {
         ),
       ),
   );
+  revalidatePath("/operasyon/cetele");
+}
+
+/**
+ * Çetele tahtasından toplu kayıt. Seçilen güzergah+yön satırları için
+ * o günün çetelesini açar; aracı olmayan satır atlanır.
+ * Kayıtlar "bekliyor" açılır — onay ayrı adım, hakedişin dayanağı o.
+ */
+export async function bulkCreateTripLogsAction(formData: FormData): Promise<void> {
+  const session = await requireModule("cetele:bulk", "operasyon");
+
+  const date = String(formData.get("logDate") ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+
+  const keys = formData.getAll("keys").map(String).filter(Boolean);
+  if (keys.length === 0) return;
+
+  // Satır anahtarı: routeId::direction::vehicleId::tripType
+  const rows = keys
+    .map((key) => {
+      const [routeId, direction, vehicleId, tripType] = key.split("::");
+      return { routeId, direction: direction || null, vehicleId, tripType: tripType || "sefer" };
+    })
+    .filter((r) => r.routeId && r.vehicleId);
+  if (rows.length === 0) return;
+
+  await withTenant(session.tenantId, async (tx) => {
+    const companyByRoute = await tx
+      .select({ id: routes.id, companyId: routes.companyId })
+      .from(routes)
+      .where(
+        and(
+          eq(routes.tenantId, session.tenantId),
+          inArray(
+            routes.id,
+            rows.map((r) => r.routeId!),
+          ),
+        ),
+      );
+    const lookup = new Map(companyByRoute.map((r) => [r.id, r.companyId]));
+
+    await tx
+      .insert(tripLogs)
+      .values(
+        rows.map((r) => ({
+          tenantId: session.tenantId,
+          companyId: lookup.get(r.routeId!) ?? null,
+          vehicleId: r.vehicleId!,
+          routeId: r.routeId!,
+          logDate: date,
+          tripType: r.tripType,
+          direction: r.direction,
+          createdBy: session.userId,
+        })),
+      )
+      // Aynı araç/gün/hareket için kayıt varsa dokunma — mükerrer olmasın.
+      .onConflictDoNothing();
+  });
+
+  await writeAuditLog({
+    tenantId: session.tenantId,
+    userId: session.userId,
+    event: "trip_log.bulk_created",
+    entityType: "trip_log",
+    metadata: { date, count: rows.length },
+  });
   revalidatePath("/operasyon/cetele");
 }

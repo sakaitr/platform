@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   Badge,
@@ -21,6 +22,8 @@ import {
   deleteTripLogAction,
   saveTripLogAction,
 } from "@/modules/operasyon/cetele/actions";
+import { bulkCreateTripLogsAction } from "@/modules/operasyon/cetele/actions";
+import { boardSummary, processable, tripBoard } from "@/modules/operasyon/cetele/board";
 import { getTripLog, listTripLogs, tripLogSummary } from "@/modules/operasyon/cetele/queries";
 import { routeOptions } from "@/modules/operasyon/guzergah/queries";
 import { RevertForm } from "./revert-form";
@@ -53,13 +56,24 @@ export default async function CetelePage({ searchParams }: { searchParams: Searc
     scope: session.scope,
   };
 
-  const [rows, summary, firmalar, araclar, guzergahlar] = await Promise.all([
+  // Tahta tek gün üzerinden çalışır; liste tarih aralığını gösterir.
+  const boardDate = one(params, "gun") ?? today;
+
+  const [rows, summary, firmalar, araclar, guzergahlar, board] = await Promise.all([
     listTripLogs(session.tenantId, filter),
     tripLogSummary(session.tenantId, filter),
     companyOptions(session.tenantId, session.scope),
     vehicleOptions(session.tenantId, session.scope),
     routeOptions(session.tenantId, session.scope),
+    tripBoard(session.tenantId, {
+      date: boardDate,
+      companyId: filter.companyId,
+      scope: session.scope,
+    }),
   ]);
+
+  const boardStats = boardSummary(board);
+  const acilabilir = processable(board);
   const editingId = one(params, "duzenle");
   const editing = editingId ? await getTripLog(session.tenantId, editingId) : null;
 
@@ -126,6 +140,98 @@ export default async function CetelePage({ searchParams }: { searchParams: Searc
           </Card>
         ))}
       </div>
+
+      <PageHeader
+        title="Günün Hatları"
+        description={`${formatDate(boardDate)} · ${boardStats.islenmedi} işlenmemiş${
+          boardStats.aracsiz > 0 ? ` · ${boardStats.aracsiz} araçsız` : ""
+        }`}
+      />
+
+      <Card className="flex flex-wrap items-center gap-2 p-3 text-xs">
+        <Link href={`/operasyon/cetele?gun=${shiftDay(boardDate, -1)}`} className="rounded-lg border border-neutral-300 px-3 py-1.5">
+          ← Önceki gün
+        </Link>
+        <Link href={`/operasyon/cetele?gun=${today}`} className="rounded-lg border border-neutral-300 px-3 py-1.5">
+          Bugün
+        </Link>
+        <Link href={`/operasyon/cetele?gun=${shiftDay(boardDate, 1)}`} className="rounded-lg border border-neutral-300 px-3 py-1.5">
+          Sonraki gün →
+        </Link>
+      </Card>
+
+      {board.length === 0 ? (
+        <Card className="p-6 text-sm text-neutral-500">
+          Aktif güzergah yok.{" "}
+          <Link href="/operasyon/guzergahlar" className="underline">
+            Güzergah tanımlayın
+          </Link>
+          .
+        </Card>
+      ) : (
+        <form action={bulkCreateTripLogsAction} className="space-y-3">
+          <input type="hidden" name="logDate" value={boardDate} />
+          <Table
+            head={[canWrite ? "" : " ", "Güzergah", t("customer"), "Yön", "Vardiya", t("asset"), t("staff"), "Durum"]}
+          >
+            {board.map((entry) => (
+              <tr
+                key={entry.key}
+                className={
+                  entry.status === "islenmedi" && entry.vehicleId
+                    ? "bg-amber-50/40"
+                    : "hover:bg-neutral-50"
+                }
+              >
+                <Td>
+                  {canWrite && entry.status === "islenmedi" && entry.vehicleId ? (
+                    <input
+                      type="checkbox"
+                      name="keys"
+                      defaultChecked
+                      value={`${entry.routeId}::${entry.direction ?? ""}::${entry.vehicleId}::${
+                        entry.shiftName ?? "sefer"
+                      }`}
+                    />
+                  ) : null}
+                </Td>
+                <Td className="font-medium">
+                  {entry.routeName}
+                  {entry.routeCode ? (
+                    <span className="ml-2 text-xs text-neutral-400">{entry.routeCode}</span>
+                  ) : null}
+                </Td>
+                <Td className="text-neutral-500">{entry.companyName ?? "—"}</Td>
+                <Td>
+                  {entry.direction === "giris" ? "Giriş" : entry.direction === "cikis" ? "Çıkış" : "—"}
+                </Td>
+                <Td className="text-neutral-500">
+                  {entry.shiftName ?? <span className="text-amber-700">vardiya tanımlanmadı</span>}
+                </Td>
+                <Td>
+                  {entry.plate ?? <span className="text-amber-700">araç atanmamış</span>}
+                </Td>
+                <Td className="text-neutral-500">{entry.driverName ?? "—"}</Td>
+                <Td>
+                  {entry.status === "islenmedi" ? (
+                    <Badge tone="mute">İşlenmedi</Badge>
+                  ) : (
+                    <Badge tone={TONE[entry.status]}>
+                      {STATUS.find((s) => s.value === entry.status)?.label ?? entry.status}
+                    </Badge>
+                  )}
+                </Td>
+              </tr>
+            ))}
+          </Table>
+
+          {canWrite && acilabilir.length > 0 ? (
+            <Button type="submit">Seçilenlerin Çetelesini Aç ({acilabilir.length})</Button>
+          ) : null}
+        </form>
+      )}
+
+      <PageHeader title="Kayıtlar" description="Onay ve düzeltme" />
 
       <FilterBar action="/operasyon/cetele">
         <Field label="Başlangıç">
