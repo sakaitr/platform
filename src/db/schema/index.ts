@@ -6,4 +6,5 @@ export * from "./core";
 export * from "./operasyon";
 export * from "./guzergah";
 export * from "./filo";
+export * from "./muhasebe";
 export * from "./imports";

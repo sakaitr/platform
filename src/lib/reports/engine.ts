@@ -38,9 +38,11 @@ export async function ensureReportsRegistered(): Promise<void> {
   const { registerCoreReports } = await import("@/modules/reports/core-reports");
   const { registerOperasyonReports } = await import("@/modules/operasyon/reports");
   const { registerFiloReports } = await import("@/modules/filo/reports");
+  const { registerMuhasebeReports } = await import("@/modules/muhasebe/reports");
   registerCoreReports();
   registerOperasyonReports();
   registerFiloReports();
+  registerMuhasebeReports();
   bootstrapped = true;
 }
 

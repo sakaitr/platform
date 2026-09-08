@@ -86,7 +86,7 @@ describe("lisans durum makinesi", () => {
     const access = await getTenantAccess(tenant.id);
     const keys = buildNavigation({
       ...access,
-      permissions: new Set(["dashboard:read", "users:read"]),
+      permissions: new Set(["dashboard:read", "users:read", "finans_gider:read"]),
     }).map((m) => m.key);
     expect(keys).toContain("muhasebe");
     expect(keys).not.toContain("filo");
