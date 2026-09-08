@@ -1,7 +1,6 @@
 import {
   Badge,
   Button,
-  Card,
   EmptyRow,
   Field,
   FilterBar,
@@ -16,7 +15,8 @@ import { formatDate, istanbulDayKey } from "@/lib/time";
 import { companyOptions } from "@/modules/crm/queries";
 import { listUsers } from "@/modules/admin/queries";
 import { deleteTaskAction, saveTaskAction, setTaskStatusAction } from "@/modules/isbirligi/actions";
-import { getTask, listTasks } from "@/modules/isbirligi/queries";
+import { getTask, listTasks, taskStats } from "@/modules/isbirligi/queries";
+import { TaskStatsPanel } from "./stats";
 
 const STATUS = [
   { value: "yapilacak", label: "Yapılacak" },
@@ -55,10 +55,11 @@ export default async function GorevlerPage({ searchParams }: { searchParams: Sea
     assignedTo: one(params, "kisi"),
     priority: one(params, "oncelik"),
   };
-  const [rows, kullanicilar, firmalar] = await Promise.all([
+  const [rows, kullanicilar, firmalar, stats] = await Promise.all([
     listTasks(session.tenantId, filter),
     listUsers(session.tenantId),
     companyOptions(session.tenantId, session.scope),
+    taskStats(session.tenantId),
   ]);
   const editingId = one(params, "duzenle");
   const editing = editingId ? await getTask(session.tenantId, editingId) : null;
@@ -106,16 +107,7 @@ export default async function GorevlerPage({ searchParams }: { searchParams: Sea
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-4">
-        {STATUS.map((s) => (
-          <Card key={s.value} className="p-4">
-            <p className="text-xs uppercase tracking-wide text-neutral-500">{s.label}</p>
-            <p className="mt-1 text-2xl font-semibold">
-              {rows.filter((r) => r.status === s.value).length}
-            </p>
-          </Card>
-        ))}
-      </div>
+      <TaskStatsPanel stats={stats} />
 
       <FilterBar action="/gorevler">
         <Field label="Durum">

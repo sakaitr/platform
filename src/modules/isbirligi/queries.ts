@@ -1,4 +1,17 @@
-import { and, asc, count, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import {
   announcements,
   blacklist,
@@ -402,4 +415,93 @@ export async function listAnnouncements(tenantId: string, onlyActive = false) {
       .where(and(...parts))
       .orderBy(desc(announcements.createdAt)),
   );
+}
+
+/* ---------- İş takibi istatistikleri ---------- */
+
+export type TaskStats = {
+  durum: Array<{ durum: string; adet: number }>;
+  oncelik: Array<{ oncelik: string; adet: number }>;
+  kisi: Array<{ kisi: string; toplam: number; biten: number; geciken: number }>;
+  aylik: Array<{ ay: string; olusturulan: number; cozulen: number }>;
+  sure: { ortalamaGun: number; enHizliGun: number; enUzunGun: number };
+};
+
+/**
+ * Görev panosu istatistikleri: durum/öncelik dağılımı, kişi bazlı yük,
+ * son 6 ayın açılan-kapanan eğrisi ve çözüm süresi.
+ */
+export async function taskStats(tenantId: string): Promise<TaskStats> {
+  return withTenant(tenantId, async (tx) => {
+    const durum = await tx
+      .select({ durum: tasks.status, adet: count() })
+      .from(tasks)
+      .where(eq(tasks.tenantId, tenantId))
+      .groupBy(tasks.status);
+
+    const oncelik = await tx
+      .select({ oncelik: tasks.priority, adet: count() })
+      .from(tasks)
+      .where(eq(tasks.tenantId, tenantId))
+      .groupBy(tasks.priority);
+
+    const kisi = await tx
+      .select({
+        kisi: users.name,
+        toplam: sql<number>`count(*)`,
+        biten: sql<number>`count(*) filter (where ${tasks.status} = 'bitti')`,
+        geciken: sql<number>`count(*) filter (where ${tasks.status} <> 'bitti' and ${tasks.dueDate} < current_date)`,
+      })
+      .from(tasks)
+      .innerJoin(users, eq(users.id, tasks.assignedTo))
+      .where(eq(tasks.tenantId, tenantId))
+      .groupBy(users.name)
+      .orderBy(desc(sql`2`));
+
+    const aylik = await tx
+      .select({
+        ay: sql<string>`to_char(${tasks.createdAt}, 'YYYY-MM')`,
+        olusturulan: sql<number>`count(*)`,
+        cozulen: sql<number>`count(*) filter (where ${tasks.completedAt} is not null)`,
+      })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.tenantId, tenantId),
+          sql`${tasks.createdAt} >= date_trunc('month', current_date) - interval '5 months'`,
+        ),
+      )
+      .groupBy(sql`1`)
+      .orderBy(sql`1`);
+
+    const [sure] = await tx
+      .select({
+        ortalama: sql<string>`coalesce(round(avg(extract(epoch from (${tasks.completedAt} - ${tasks.createdAt})) / 86400)::numeric, 1), 0)`,
+        enHizli: sql<string>`coalesce(round(min(extract(epoch from (${tasks.completedAt} - ${tasks.createdAt})) / 86400)::numeric, 1), 0)`,
+        enUzun: sql<string>`coalesce(round(max(extract(epoch from (${tasks.completedAt} - ${tasks.createdAt})) / 86400)::numeric, 1), 0)`,
+      })
+      .from(tasks)
+      .where(and(eq(tasks.tenantId, tenantId), isNotNull(tasks.completedAt)));
+
+    return {
+      durum: durum.map((d) => ({ durum: d.durum, adet: d.adet })),
+      oncelik: oncelik.map((o) => ({ oncelik: o.oncelik, adet: o.adet })),
+      kisi: kisi.map((k) => ({
+        kisi: k.kisi,
+        toplam: Number(k.toplam),
+        biten: Number(k.biten),
+        geciken: Number(k.geciken),
+      })),
+      aylik: aylik.map((a) => ({
+        ay: a.ay,
+        olusturulan: Number(a.olusturulan),
+        cozulen: Number(a.cozulen),
+      })),
+      sure: {
+        ortalamaGun: Number(sure?.ortalama ?? 0),
+        enHizliGun: Number(sure?.enHizli ?? 0),
+        enUzunGun: Number(sure?.enUzun ?? 0),
+      },
+    };
+  });
 }

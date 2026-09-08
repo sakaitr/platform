@@ -1,12 +1,28 @@
-import { Badge, Button, EmptyRow, PageHeader, Table, Td } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  EmptyRow,
+  Field,
+  FilterBar,
+  PageHeader,
+  Table,
+  Td,
+  inputClass,
+} from "@/components/ui";
 import { EntityForm, type FieldSpec } from "@/components/ui/entity-form";
 import { one, pageContext, type SearchParams } from "@/lib/page-context";
-import { formatDate, formatDateTime, istanbulDayKey } from "@/lib/time";
+import { formatDate, formatDateTime, istanbulDayKey, shiftDay } from "@/lib/time";
+import { listUsers } from "@/modules/admin/queries";
 import {
   deleteQuestionAction,
   saveQuestionAction,
 } from "@/modules/operasyon/gunluk/actions";
-import { getEntry, listEntries, listQuestions } from "@/modules/operasyon/gunluk/queries";
+import {
+  getEntry,
+  listEntriesRange,
+  listQuestions,
+  participation,
+} from "@/modules/operasyon/gunluk/queries";
 import { DailyForm } from "./daily-form";
 
 const TYPES = [
@@ -36,13 +52,18 @@ export default async function GunlukPage({ searchParams }: { searchParams: Searc
   const params = await searchParams;
   const { session } = await pageContext("gunluk:read", "operasyon");
 
-  const day = one(params, "tarih") ?? istanbulDayKey();
+  const today = istanbulDayKey();
+  const from = one(params, "baslangic") ?? shiftDay(today, -6);
+  const to = one(params, "bitis") ?? today;
+  const kisi = one(params, "kisi");
   const canManage = session.permissions.has("gunluk:update");
 
-  const [questions, entry, entries] = await Promise.all([
+  const [questions, entry, entries, katilim, kullanicilar] = await Promise.all([
     listQuestions(session.tenantId, true),
-    getEntry(session.tenantId, session.userId, istanbulDayKey()),
-    canManage ? listEntries(session.tenantId, day) : Promise.resolve([]),
+    getEntry(session.tenantId, session.userId, today),
+    canManage ? listEntriesRange(session.tenantId, { from, to, userId: kisi }) : Promise.resolve([]),
+    canManage ? participation(session.tenantId, from, to) : Promise.resolve([]),
+    canManage ? listUsers(session.tenantId) : Promise.resolve([]),
   ]);
   const allQuestions = canManage ? await listQuestions(session.tenantId) : [];
   const labelOf = new Map(allQuestions.map((q) => [q.id, q.label]));
@@ -98,13 +119,55 @@ export default async function GunlukPage({ searchParams }: { searchParams: Searc
             )}
           </Table>
 
-          <PageHeader title="Gelen Kayıtlar" description={formatDate(day)} />
-          <Table head={["Kişi", "Cevaplar", "Not", "Zaman"]}>
+          <PageHeader
+            title="Katılım"
+            description={`${formatDate(from)} – ${formatDate(to)}`}
+          />
+          <Table head={["Kişi", "Doldurulan", "Eksik", "Oran", "Son Kayıt"]}>
+            {katilim.length === 0 ? (
+              <EmptyRow colSpan={5} text="Kullanıcı yok." />
+            ) : (
+              katilim.map((k) => (
+                <tr key={k.kisi} className="hover:bg-neutral-50">
+                  <Td className="font-medium">{k.kisi}</Td>
+                  <Td>{k.doldurulan}</Td>
+                  <Td>
+                    {k.eksik > 0 ? <Badge tone="warn">{k.eksik}</Badge> : <span className="text-neutral-400">0</span>}
+                  </Td>
+                  <Td>%{k.oran}</Td>
+                  <Td className="text-neutral-500">{k.sonKayit ? formatDate(k.sonKayit) : "hiç"}</Td>
+                </tr>
+              ))
+            )}
+          </Table>
+
+          <FilterBar action="/operasyon/gunluk">
+            <Field label="Başlangıç">
+              <input type="date" name="baslangic" defaultValue={from} className={inputClass} />
+            </Field>
+            <Field label="Bitiş">
+              <input type="date" name="bitis" defaultValue={to} className={inputClass} />
+            </Field>
+            <Field label="Kişi">
+              <select name="kisi" defaultValue={kisi ?? ""} className={inputClass}>
+                <option value="">Tümü</option>
+                {kullanicilar.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </FilterBar>
+
+          <PageHeader title="Gelen Kayıtlar" description={`${entries.length} kayıt`} />
+          <Table head={["Tarih", "Kişi", "Cevaplar", "Not", "Zaman"]}>
             {entries.length === 0 ? (
-              <EmptyRow colSpan={4} text="Bu tarihte kayıt yok." />
+              <EmptyRow colSpan={5} text="Bu aralıkta kayıt bulunamadı" />
             ) : (
               entries.map((e) => (
                 <tr key={e.id} className="hover:bg-neutral-50">
+                  <Td>{formatDate(e.entryDate)}</Td>
                   <Td className="font-medium">{e.userName}</Td>
                   <td className="px-4 py-2.5 text-xs text-neutral-600">
                     {Object.entries((e.answers as Record<string, unknown>) ?? {}).map(([qid, value]) => (

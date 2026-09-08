@@ -284,3 +284,101 @@ describe("kara liste", () => {
     expect(await isBlacklisted(tenantB!.id, { plate: "34KARA01" })).toBe(true);
   });
 });
+
+describe("görev istatistikleri", () => {
+  beforeEach(async () => {
+    await resetDatabase();
+  });
+
+  it("durum ve öncelik dağılımını sayar", async () => {
+    const { tenantId, user } = await seed();
+    const { taskStats } = await import("@/modules/isbirligi/queries");
+    await dbAdmin.insert(tasks).values([
+      { tenantId, title: "A", status: "yapilacak", priority: "kritik", assignedTo: user.id },
+      { tenantId, title: "B", status: "bitti", priority: "normal", assignedTo: user.id, completedAt: new Date() },
+      { tenantId, title: "C", status: "bitti", priority: "normal" },
+    ]);
+
+    const stats = await taskStats(tenantId);
+    expect(stats.durum.find((d) => d.durum === "bitti")?.adet).toBe(2);
+    expect(stats.oncelik.find((o) => o.oncelik === "normal")?.adet).toBe(2);
+  });
+
+  it("kişi bazlı yalnız atanmışları sayar", async () => {
+    const { tenantId, user } = await seed();
+    const { taskStats } = await import("@/modules/isbirligi/queries");
+    await dbAdmin.insert(tasks).values([
+      { tenantId, title: "Atanan", assignedTo: user.id },
+      { tenantId, title: "Atanmayan" },
+    ]);
+    const stats = await taskStats(tenantId);
+    expect(stats.kisi).toHaveLength(1);
+    expect(stats.kisi[0]!.toplam).toBe(1);
+  });
+
+  it("geciken görev sayılır", async () => {
+    const { tenantId, user } = await seed();
+    const { taskStats } = await import("@/modules/isbirligi/queries");
+    await dbAdmin.insert(tasks).values([
+      { tenantId, title: "Geciken", assignedTo: user.id, dueDate: "2020-01-01" },
+      { tenantId, title: "Zamanı var", assignedTo: user.id, dueDate: "2099-01-01" },
+    ]);
+    const stats = await taskStats(tenantId);
+    expect(stats.kisi[0]!.geciken).toBe(1);
+  });
+
+  it("hiç görev yoksa süre sıfır döner", async () => {
+    const { tenantId } = await seed();
+    const { taskStats } = await import("@/modules/isbirligi/queries");
+    const stats = await taskStats(tenantId);
+    expect(stats.sure.ortalamaGun).toBe(0);
+    expect(stats.durum).toHaveLength(0);
+  });
+});
+
+describe("günlük katılım", () => {
+  beforeEach(async () => {
+    await resetDatabase();
+  });
+
+  it("eksik gün sayısı aralıktan hesaplanır", async () => {
+    const { tenantId, user } = await seed();
+    const { dailyEntries } = await import("@/db/schema");
+    const { participation } = await import("@/modules/operasyon/gunluk/queries");
+
+    await dbAdmin.insert(dailyEntries).values([
+      { tenantId, userId: user.id, entryDate: "2026-09-01", answers: {} },
+      { tenantId, userId: user.id, entryDate: "2026-09-03", answers: {} },
+    ]);
+
+    // 1–5 Eylül = 5 gün, 2 doldurulmuş → 3 eksik
+    const rows = await participation(tenantId, "2026-09-01", "2026-09-05");
+    expect(rows[0]!.doldurulan).toBe(2);
+    expect(rows[0]!.eksik).toBe(3);
+    expect(rows[0]!.oran).toBe(40);
+    expect(rows[0]!.sonKayit).toBe("2026-09-03");
+  });
+
+  it("hiç doldurmayan kullanıcı da listede çıkar", async () => {
+    const { tenantId } = await seed();
+    const { participation } = await import("@/modules/operasyon/gunluk/queries");
+    const rows = await participation(tenantId, "2026-09-01", "2026-09-05");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.doldurulan).toBe(0);
+    expect(rows[0]!.sonKayit).toBeNull();
+  });
+
+  it("aralık dışındaki kayıt sayılmaz", async () => {
+    const { tenantId, user } = await seed();
+    const { dailyEntries } = await import("@/db/schema");
+    const { participation } = await import("@/modules/operasyon/gunluk/queries");
+    await dbAdmin.insert(dailyEntries).values({
+      tenantId,
+      userId: user.id,
+      entryDate: "2026-08-01",
+      answers: {},
+    });
+    const rows = await participation(tenantId, "2026-09-01", "2026-09-05");
+    expect(rows[0]!.doldurulan).toBe(0);
+  });
+});
