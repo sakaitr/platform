@@ -162,53 +162,6 @@ export const FILO_RECORDS: Record<string, FiloRecordDef> = {
     ],
   },
 
-  denetimler: {
-    key: "denetimler",
-    label: "Denetim",
-    plural: "Denetimler",
-    description: "Araç denetimleri ve sonuçları",
-    permission: "denetimler",
-    dateField: "inspectionDate",
-    defaults: { result: "bekliyor", type: "rutin" },
-    schema: z.object({
-      vehicleId: requiredUuid,
-      inspectionDate: day,
-      type: z.string().trim().min(1).max(50),
-      result: z.enum(["bekliyor", "gecti", "kaldi", "sartli"]).catch("bekliyor"),
-      notes: text(1000),
-    }),
-    fields: (o) => [
-      vehicleField(o),
-      { name: "inspectionDate", label: "Tarih", type: "date", required: true },
-      { name: "type", label: "Denetim Tipi", type: "text", required: true, hint: "rutin, ani, müşteri…" },
-      {
-        name: "result",
-        label: "Sonuç",
-        type: "select",
-        options: [
-          { value: "bekliyor", label: "Bekliyor" },
-          { value: "gecti", label: "Geçti" },
-          { value: "sartli", label: "Şartlı" },
-          { value: "kaldi", label: "Kaldı" },
-        ],
-      },
-      { name: "notes", label: "Not", type: "textarea", wide: true },
-    ],
-    columns: [
-      { key: "inspectionDate", label: "Tarih", format: "date" },
-      { key: "plate", label: "Araç" },
-      { key: "type", label: "Tip" },
-      {
-        key: "result",
-        label: "Sonuç",
-        format: "badge",
-        tone: { bekliyor: "warn", gecti: "ok", sartli: "info", kaldi: "bad" },
-        labels: { bekliyor: "Bekliyor", gecti: "Geçti", sartli: "Şartlı", kaldi: "Kaldı" },
-      },
-      { key: "notes", label: "Not" },
-    ],
-  },
-
   kazalar: {
     key: "kazalar",
     label: "Kaza",

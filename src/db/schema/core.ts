@@ -168,3 +168,36 @@ export const driverDocuments = pgTable(
 
 export type VehicleCompany = typeof vehicleCompanies.$inferSelect;
 export type DriverDocument = typeof driverDocuments.$inferSelect;
+
+/**
+ * Yüklenen dosya. İçerik diskte (Docker birimi), meta veri burada.
+ * Dosyalar doğrudan servis edilmez; `/api/dosya/[id]` kiracı ve izin
+ * kontrolünden geçirir — yol tahmin edilerek başkasının dosyası okunamaz.
+ */
+export const files = pgTable(
+  "files",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    /** Diskteki göreli yol — kiracı klasörü altında. */
+    storagePath: text("storage_path").notNull(),
+    originalName: varchar("original_name", { length: 255 }).notNull(),
+    mimeType: varchar("mime_type", { length: 100 }).notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    /** Hangi kayda ait: "inspection", "vehicle_document"… */
+    entityType: varchar("entity_type", { length: 50 }),
+    entityId: uuid("entity_id"),
+    /** Denetimde hangi kritere ait; genel fotoğraflarda boş. */
+    slot: varchar("slot", { length: 50 }),
+    uploadedBy: uuid("uploaded_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("files_tenant_idx").on(t.tenantId),
+    entityIdx: index("files_entity_idx").on(t.entityType, t.entityId),
+  }),
+);
+
+export type StoredFile = typeof files.$inferSelect;

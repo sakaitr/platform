@@ -9,8 +9,10 @@ export default defineConfig({
   test: {
     environment: "node",
     fileParallelism: false,
-    // Playwright spec'leri vitest tarafından çalıştırılmaz
-    exclude: ["node_modules/**", "tests/e2e/**"],
+    // Yalnız kök tests/ klasöründeki birim testleri. Playwright spec'leri ve
+    // standalone çıktısına kopyalanan test dosyaları dışarıda kalır.
+    include: ["tests/*.test.ts"],
+    exclude: ["node_modules/**", ".next/**", "tests/e2e/**"],
     env: {
       DATABASE_URL: "postgresql://agno_app:app_dev@localhost:5432/agno_platform_test",
       DATABASE_ADMIN_URL: "postgresql://agno_owner:owner_dev@localhost:5432/agno_platform_test",

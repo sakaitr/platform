@@ -75,13 +75,14 @@ const TR_ASCII: Record<string, string> = {
  * HTTP başlıkları ByteString (0-255) kabul eder; "ı" (U+0131) gibi karakterler
  * 500'e düşürür. ASCII fallback + RFC 5987 filename* ile ikisini de veriyoruz.
  */
-export function contentDisposition(name: string, ext: string): string {
+export function contentDisposition(name: string, ext: string, mode: "attachment" | "inline" = "attachment"): string {
   const slug = name
     .replace(/[çÇğĞıİöÖşŞüÜ]/g, (ch) => TR_ASCII[ch] ?? ch)
     .replace(/[^a-zA-Z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .toLowerCase();
-  const ascii = (slug.length > 0 ? slug : "rapor") + "." + ext;
-  const utf8 = encodeURIComponent(name.replace(/[/\\]/g, "-") + "." + ext);
-  return `attachment; filename="${ascii}"; filename*=UTF-8''${utf8}`;
+  const suffix = ext.length > 0 ? `.${ext}` : "";
+  const ascii = (slug.length > 0 ? slug : "dosya") + suffix;
+  const utf8 = encodeURIComponent(name.replace(/[/\\]/g, "-") + suffix);
+  return `${mode}; filename="${ascii}"; filename*=UTF-8''${utf8}`;
 }

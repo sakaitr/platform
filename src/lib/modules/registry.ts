@@ -126,6 +126,7 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
       { label: "Bakımlar", href: "/filo/bakim" },
       { label: "Belgeler", href: "/filo/belgeler" },
       { label: "Denetimler", href: "/filo/denetimler" },
+      { label: "Denetim Türleri", href: "/filo/denetimler/turler" },
       { label: "Kazalar", href: "/filo/kazalar" },
       { label: "Cezalar", href: "/filo/cezalar" },
       { label: "Arızalar", href: "/filo/arizalar" },

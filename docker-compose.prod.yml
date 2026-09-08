@@ -10,6 +10,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_started }
+    volumes: [uploads:/data/uploads]
     networks: [internal, coolify]
     labels:
       - traefik.enable=true
@@ -34,6 +35,7 @@ services:
       app: { condition: service_started }
       postgres: { condition: service_healthy }
       redis: { condition: service_started }
+    volumes: [uploads:/data/uploads]
     networks: [internal]
 
   postgres:
@@ -70,6 +72,8 @@ services:
 volumes:
   pg_data:
   redis_data:
+  # Yüklenen denetim fotoğrafları ve belgeler. Konteyner yenilense de kalır.
+  uploads:
 
 networks:
   # İzole iç ağ — postgres/redis SADECE burada, `agnodb`/`agnocache` adlarıyla.

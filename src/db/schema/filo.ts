@@ -101,6 +101,10 @@ export const inspections = pgTable(
     inspectorId: uuid("inspector_id").references(() => users.id, { onDelete: "set null" }),
     inspectionDate: date("inspection_date").notNull(),
     type: varchar("type", { length: 50 }).notNull().default("rutin"),
+    typeId: uuid("type_id"),
+    companyId: uuid("company_id"),
+    /** Eksikliğin giderilmesi için verilen süre. */
+    deadline: date("deadline"),
     result: inspectionResultEnum("result").notNull().default("bekliyor"),
     checklist: jsonb("checklist").notNull().default([]),
     notes: text("notes"),
@@ -335,3 +339,45 @@ export type VehicleInsurance = typeof vehicleInsurances.$inferSelect;
 export type VehicleTire = typeof vehicleTires.$inferSelect;
 export type FuelCard = typeof fuelCards.$inferSelect;
 export type FuelPurchase = typeof fuelPurchases.$inferSelect;
+
+/** Denetim tipi ve kriterleri — "Günlük Araç Kontrolü", "Müşteri Denetimi"… */
+export const inspectionTypes = pgTable(
+  "inspection_types",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    code: varchar("code", { length: 50 }).notNull(),
+    label: varchar("label", { length: 255 }).notNull(),
+    position: integer("position").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+  },
+  (t) => ({
+    tenantIdx: index("inspection_types_tenant_idx").on(t.tenantId),
+    uniq: uniqueIndex("inspection_types_uniq").on(t.tenantId, t.code),
+  }),
+);
+
+export const inspectionCriteria = pgTable(
+  "inspection_criteria",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    typeId: uuid("type_id")
+      .notNull()
+      .references(() => inspectionTypes.id, { onDelete: "cascade" }),
+    label: varchar("label", { length: 255 }).notNull(),
+    position: integer("position").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+  },
+  (t) => ({
+    tenantIdx: index("inspection_criteria_tenant_idx").on(t.tenantId),
+    typeIdx: index("inspection_criteria_type_idx").on(t.typeId, t.position),
+  }),
+);
+
+export type InspectionType = typeof inspectionTypes.$inferSelect;
+export type InspectionCriterion = typeof inspectionCriteria.$inferSelect;
