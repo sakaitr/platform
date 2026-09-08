@@ -20,6 +20,9 @@ import { users } from "./auth";
 /** Taşınan kişi. Turizm'de Yolcu/Personel, lojistikte Sevkiyat İlgilisi. */
 export const passengerTypeEnum = pgEnum("passenger_type", ["yolcu", "personel", "musteri"]);
 export const passengerServiceEnum = pgEnum("passenger_service", ["aktif", "pasif", "askida"]);
+export const contractStatusEnum = pgEnum("contract_status", ["yok", "gonderildi", "imzalandi"]);
+/** Yolcunun hangi yönde servise bindiği. */
+export const passengerDirectionEnum = pgEnum("passenger_direction", ["sabah", "aksam", "her_iki"]);
 
 export const passengers = pgTable(
   "passengers",
@@ -44,6 +47,12 @@ export const passengers = pgTable(
     pickupLng: numeric("pickup_lng", { precision: 10, scale: 7 }),
     dropoffAddress: text("dropoff_address"),
     serviceStatus: passengerServiceEnum("service_status").notNull().default("aktif"),
+    contractStatus: contractStatusEnum("contract_status").notNull().default("yok"),
+    paymentPlanId: uuid("payment_plan_id"),
+    /** Yolcunun bindiği hat — servis değişikliği bunun üstüne geçici yazar. */
+    routeId: uuid("route_id"),
+    /** Sadece sabah, sadece akşam ya da her iki yön. */
+    direction: passengerDirectionEnum("direction").notNull().default("her_iki"),
     isActive: boolean("is_active").notNull().default(true),
     notes: text("notes"),
     createdBy: uuid("created_by"),
@@ -180,3 +189,62 @@ export type VehicleArrival = typeof vehicleArrivals.$inferSelect;
 export type VisitorLog = typeof visitorLogs.$inferSelect;
 export type DailyQuestion = typeof dailyQuestions.$inferSelect;
 export type DailyEntry = typeof dailyEntries.$inferSelect;
+
+/** Ödeme planı — okul/kurum servisinde yolcunun taksit planı. */
+export const paymentPlans = pgTable(
+  "payment_plans",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 100 }).notNull(),
+    totalAmount: numeric("total_amount", { precision: 12, scale: 2 }),
+    installments: integer("installments"),
+    notes: text("notes"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("payment_plans_tenant_idx").on(t.tenantId),
+    uniq: uniqueIndex("payment_plans_uniq").on(t.tenantId, t.name),
+  }),
+);
+
+export const serviceChangeDirectionEnum = pgEnum("service_change_direction", [
+  "sabah",
+  "aksam",
+  "her_iki",
+]);
+
+/**
+ * Servis değişikliği — yolcunun geçici olarak başka güzergaha binmesi.
+ * Tarih aralıklı: dönem bitince eski güzergahına döner.
+ */
+export const serviceChanges = pgTable(
+  "service_changes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    passengerId: uuid("passenger_id")
+      .notNull()
+      .references(() => passengers.id, { onDelete: "cascade" }),
+    originalRouteId: uuid("original_route_id"),
+    temporaryRouteId: uuid("temporary_route_id"),
+    startsOn: date("starts_on").notNull(),
+    endsOn: date("ends_on"),
+    direction: serviceChangeDirectionEnum("direction").notNull().default("her_iki"),
+    notes: varchar("notes", { length: 500 }),
+    createdBy: uuid("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("service_changes_tenant_idx").on(t.tenantId),
+    passengerIdx: index("service_changes_passenger_idx").on(t.passengerId, t.startsOn),
+  }),
+);
+
+export type PaymentPlan = typeof paymentPlans.$inferSelect;
+export type ServiceChange = typeof serviceChanges.$inferSelect;

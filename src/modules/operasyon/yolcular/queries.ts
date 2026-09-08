@@ -1,5 +1,5 @@
-import { and, asc, count, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm";
-import { companies, passengers } from "@/db/schema";
+import { and, asc, count, desc, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm";
+import { companies, passengers, paymentPlans, routes, serviceChanges } from "@/db/schema";
 import { withTenant } from "@/db/tenant";
 
 export const PAGE_SIZE = 50;
@@ -7,8 +7,11 @@ export const PAGE_SIZE = 50;
 export type PassengerFilter = {
   q?: string;
   companyId?: string;
+  routeId?: string;
   type?: string;
   durum?: string;
+  /** ad | firma | tur | durum */
+  sirala?: string;
   page?: number;
   scope: string[] | null;
 };
@@ -37,7 +40,22 @@ function buildWhere(tenantId: string, f: PassengerFilter): SQL {
   if (f.type) parts.push(eq(passengers.type, f.type as "yolcu"));
   if (f.durum === "aktif") parts.push(eq(passengers.isActive, true));
   if (f.durum === "pasif") parts.push(eq(passengers.isActive, false));
+  if (f.routeId) parts.push(eq(passengers.routeId, f.routeId));
   return and(...parts)!;
+}
+
+/** Sıralama seçenekleri — aycanops'taki "Ada göre / Firmaya göre / Türe göre / Duruma göre". */
+function orderBy(f: PassengerFilter) {
+  switch (f.sirala) {
+    case "firma":
+      return [asc(companies.name), asc(passengers.fullName)];
+    case "tur":
+      return [asc(passengers.type), asc(passengers.fullName)];
+    case "durum":
+      return [asc(passengers.serviceStatus), asc(passengers.fullName)];
+    default:
+      return [asc(passengers.fullName)];
+  }
 }
 
 export async function listPassengers(tenantId: string, f: PassengerFilter) {
@@ -54,14 +72,21 @@ export async function listPassengers(tenantId: string, f: PassengerFilter) {
         grade: passengers.grade,
         branch: passengers.branch,
         serviceStatus: passengers.serviceStatus,
+        contractStatus: passengers.contractStatus,
+        direction: passengers.direction,
         isActive: passengers.isActive,
         pickupAddress: passengers.pickupAddress,
+        barcode: passengers.barcode,
         companyName: companies.name,
+        routeName: routes.name,
+        planName: paymentPlans.name,
       })
       .from(passengers)
       .leftJoin(companies, eq(companies.id, passengers.companyId))
+      .leftJoin(routes, eq(routes.id, passengers.routeId))
+      .leftJoin(paymentPlans, eq(paymentPlans.id, passengers.paymentPlanId))
       .where(where)
-      .orderBy(asc(passengers.fullName))
+      .orderBy(...orderBy(f))
       .limit(PAGE_SIZE)
       .offset((page - 1) * PAGE_SIZE);
     const [total] = await tx.select({ value: count() }).from(passengers).where(where);
@@ -75,4 +100,38 @@ export async function getPassenger(tenantId: string, id: string) {
     tx.select().from(passengers).where(and(eq(passengers.tenantId, tenantId), eq(passengers.id, id))),
   );
   return rows[0] ?? null;
+}
+
+export async function listPaymentPlans(tenantId: string) {
+  return withTenant(tenantId, (tx) =>
+    tx
+      .select()
+      .from(paymentPlans)
+      .where(eq(paymentPlans.tenantId, tenantId))
+      .orderBy(asc(paymentPlans.name)),
+  );
+}
+
+/** Yolcunun servis değişiklikleri — geçici güzergah geçmişi. */
+export async function listServiceChanges(tenantId: string, passengerId?: string) {
+  const parts: SQL[] = [eq(serviceChanges.tenantId, tenantId)];
+  if (passengerId) parts.push(eq(serviceChanges.passengerId, passengerId));
+
+  return withTenant(tenantId, (tx) =>
+    tx
+      .select({
+        id: serviceChanges.id,
+        passengerName: passengers.fullName,
+        startsOn: serviceChanges.startsOn,
+        endsOn: serviceChanges.endsOn,
+        direction: serviceChanges.direction,
+        notes: serviceChanges.notes,
+        temporaryRoute: routes.name,
+      })
+      .from(serviceChanges)
+      .innerJoin(passengers, eq(passengers.id, serviceChanges.passengerId))
+      .leftJoin(routes, eq(routes.id, serviceChanges.temporaryRouteId))
+      .where(and(...parts))
+      .orderBy(desc(serviceChanges.startsOn)),
+  );
 }

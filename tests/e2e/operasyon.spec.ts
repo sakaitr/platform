@@ -56,9 +56,66 @@ test("yolcu eklenir", async ({ page }) => {
   await login(page, "kisitli-owner@e2e.test");
   await page.goto("/operasyon/yolcular");
   await page.getByRole("button", { name: "Yeni Kayıt" }).click();
-  await page.getByLabel("Ad Soyad").fill("E2E Test Yolcu");
-  await page.getByRole("button", { name: "Kaydet" }).click();
-  await expect(page.getByText("E2E Test Yolcu")).toBeVisible();
+  const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+  await form.getByLabel("Ad Soyad").fill("E2E Test Yolcu");
+  await form.getByRole("button", { name: "Kaydet" }).click();
+  await expect(page.getByRole("row").filter({ hasText: "E2E Test Yolcu" })).toBeVisible();
+});
+
+test("toplu yolcu ekleme satır satır kayıt açar", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+  await page.goto("/operasyon/yolcular");
+
+  await page.getByRole("button", { name: "Toplu Yolcu Ekle" }).click();
+  const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Hepsini Ekle" }) });
+  await form.getByLabel("Alış Noktası (hepsi için)").fill("E2E Ortak Durak");
+  await form
+    .getByLabel("Kişiler")
+    .fill("E2E Toplu Bir;05321112233;11111111111\nE2E Toplu İki;05339998877\nE2E Toplu Üç");
+  await form.getByRole("button", { name: "Hepsini Ekle" }).click();
+  await expect(form.getByText("3 kayıt eklendi.")).toBeVisible();
+
+  await page.goto("/operasyon/yolcular?q=E2E Toplu");
+  await expect(page.getByRole("row").filter({ hasText: "E2E Toplu Bir" })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "E2E Toplu Üç" })).toBeVisible();
+});
+
+test("adı eksik satır toplu eklemeyi durdurur", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+  await page.goto("/operasyon/yolcular");
+
+  await page.getByRole("button", { name: "Toplu Yolcu Ekle" }).click();
+  const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Hepsini Ekle" }) });
+  await form.getByLabel("Kişiler").fill("Geçerli Kişi\n;05321112233");
+  await form.getByRole("button", { name: "Hepsini Ekle" }).click();
+  await expect(form.getByText("2. satırda ad soyad eksik.")).toBeVisible();
+});
+
+test("geçici güzergah ataması kaydedilir", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+  await page.goto("/operasyon/yolcular?q=Alfa Yolcu");
+
+  await page.getByRole("row").filter({ hasText: "Alfa Yolcu" }).getByRole("link", { name: "Servis" }).click();
+  await page.getByRole("button", { name: "Geçici Güzergah" }).click();
+
+  const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+  await form.getByLabel("Başlangıç").fill("2026-10-01");
+  await form.getByLabel("Bitiş").fill("2026-10-15");
+  await form.getByRole("button", { name: "Kaydet" }).click();
+  await expect(form.getByText("Servis değişikliği kaydedildi.")).toBeVisible();
+});
+
+test("bitiş başlangıçtan önceyse servis değişikliği reddedilir", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+  await page.goto("/operasyon/yolcular?q=Alfa Yolcu");
+  await page.getByRole("row").filter({ hasText: "Alfa Yolcu" }).getByRole("link", { name: "Servis" }).click();
+  await page.getByRole("button", { name: "Geçici Güzergah" }).click();
+
+  const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+  await form.getByLabel("Başlangıç").fill("2026-10-20");
+  await form.getByLabel("Bitiş").fill("2026-10-05");
+  await form.getByRole("button", { name: "Kaydet" }).click();
+  await expect(form.getByText("Bitiş tarihi başlangıçtan önce olamaz.")).toBeVisible();
 });
 
 // Testler aynı kiracıyı paylaşıyor; her biri kendi gününde çalışsın ki
@@ -272,8 +329,8 @@ test("rota planı üretilir, kapasiteye göre araçlara bölünür ve aktifleşi
     if (await openButton.isVisible()) await openButton.click();
     const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
     await form.getByLabel("Ad Soyad").fill(name!);
-    await form.getByLabel("Biniş Enlem").fill(lat!);
-    await form.getByLabel("Biniş Boylam").fill(lng!);
+    await form.getByLabel("Alış Enlem").fill(lat!);
+    await form.getByLabel("Alış Boylam").fill(lng!);
     await form.getByRole("button", { name: "Kaydet" }).click();
     await expect(form.getByText("Kayıt eklendi.")).toBeVisible();
   }

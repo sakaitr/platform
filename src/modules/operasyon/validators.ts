@@ -46,6 +46,10 @@ export const PassengerSchema = z.object({
   pickupLng: coordinate,
   dropoffAddress: optionalText(1000),
   serviceStatus: z.enum(["aktif", "pasif", "askida"]).catch("aktif"),
+  contractStatus: z.enum(["yok", "gonderildi", "imzalandi"]).catch("yok"),
+  direction: z.enum(["sabah", "aksam", "her_iki"]).catch("her_iki"),
+  paymentPlanId: optionalUuid,
+  routeId: optionalUuid,
   isActive: z.coerce.boolean().catch(true),
   notes: optionalText(1000),
 });
@@ -206,4 +210,57 @@ export const RoutePlanSchema = z.object({
   companyId: optionalUuid,
   shiftName: optionalText(100),
   direction: z.enum(["gidis", "donus", "ikisi"]).catch("gidis"),
+});
+
+/** Toplu yolcu ekleme: her satır bir kişi, "Ad Soyad;Telefon;TC" biçiminde. */
+export const BulkPassengerSchema = z.object({
+  companyId: optionalUuid,
+  routeId: optionalUuid,
+  type: z.enum(["yolcu", "personel", "musteri"]).catch("personel"),
+  /** Hepsine uygulanacak ortak biniş/iniş adresi. */
+  pickupAddress: optionalText(1000),
+  dropoffAddress: optionalText(1000),
+  rows: z
+    .string()
+    .trim()
+    .min(2, "En az bir satır girin.")
+    .transform((v) =>
+      v
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0),
+    ),
+});
+
+export const ServiceChangeSchema = z.object({
+  passengerId: z.string().uuid("Yolcu seçin."),
+  temporaryRouteId: optionalUuid,
+  startsOn: dayKey,
+  endsOn: z
+    .string()
+    .trim()
+    .transform((v) => (v.length === 0 ? null : v))
+    .nullable()
+    .refine((v) => v === null || /^\d{4}-\d{2}-\d{2}$/.test(v), "Tarih geçersiz."),
+  direction: z.enum(["sabah", "aksam", "her_iki"]).catch("her_iki"),
+  notes: optionalText(500),
+});
+
+export const PaymentPlanSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(2, "Plan adı gerekli.").max(100),
+  totalAmount: z
+    .string()
+    .trim()
+    .transform((v) => (v.length === 0 ? null : v.replace(",", ".")))
+    .nullable()
+    .refine((v) => v === null || Number.isFinite(Number(v)), "Tutar sayı olmalı."),
+  installments: z
+    .string()
+    .trim()
+    .transform((v) => (v.length === 0 ? null : Number(v)))
+    .nullable()
+    .refine((v) => v === null || Number.isInteger(v), "Taksit sayısı tam sayı olmalı."),
+  notes: optionalText(1000),
+  isActive: z.coerce.boolean().catch(true),
 });
