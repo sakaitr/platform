@@ -66,6 +66,8 @@ export default async function YolcularPage({ searchParams }: { searchParams: Sea
     { name: "barcode", label: "Barkod No", type: "text" },
     { name: "serviceStatus", label: "Hizmet Durumu", type: "select", options: SERVICE },
     { name: "pickupAddress", label: "Biniş Adresi", type: "textarea", wide: true },
+    { name: "pickupLat", label: "Biniş Enlem", type: "text", hint: "Rota planlaması için" },
+    { name: "pickupLng", label: "Biniş Boylam", type: "text" },
     { name: "dropoffAddress", label: "İniş Adresi", type: "textarea", wide: true },
     { name: "notes", label: "Not", type: "textarea", wide: true },
     { name: "isActive", label: "Aktif", type: "checkbox" },

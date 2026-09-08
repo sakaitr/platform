@@ -27,6 +27,8 @@ export async function savePassengerAction(_prev: ActionState, formData: FormData
     branch: formData.get("branch") ?? "",
     barcode: formData.get("barcode") ?? "",
     pickupAddress: formData.get("pickupAddress") ?? "",
+    pickupLat: formData.get("pickupLat") ?? "",
+    pickupLng: formData.get("pickupLng") ?? "",
     dropoffAddress: formData.get("dropoffAddress") ?? "",
     serviceStatus: formData.get("serviceStatus") ?? "aktif",
     isActive: formData.get("isActive") === "on",

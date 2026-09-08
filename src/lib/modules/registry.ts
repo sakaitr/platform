@@ -36,6 +36,8 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
       { label: "Giriş Kontrol", href: "/operasyon/giris-kontrol" },
       { label: "Güzergahlar", href: "/operasyon/guzergahlar" },
       { label: "Açık Güzergahlar", href: "/operasyon/acik-guzergahlar" },
+      { label: "Rota Planlama", href: "/operasyon/rota-planlama", capability: "operasyon.rota_planlama" },
+      { label: "Harita", href: "/operasyon/harita", capability: "operasyon.rota_planlama" },
       { label: "Çetele", href: "/operasyon/cetele", capability: "operasyon.cetele" },
       { label: "Transferler", href: "/operasyon/transferler", capability: "operasyon.transfer" },
       { label: "Yolcular", href: "/operasyon/yolcular" },

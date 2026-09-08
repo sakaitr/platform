@@ -4,6 +4,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -38,6 +39,9 @@ export const passengers = pgTable(
     branch: varchar("branch", { length: 10 }),
     barcode: varchar("barcode", { length: 50 }),
     pickupAddress: text("pickup_address"),
+    /** Rota planlama koordinatları — adres geocode edilince doldurulur. */
+    pickupLat: numeric("pickup_lat", { precision: 10, scale: 7 }),
+    pickupLng: numeric("pickup_lng", { precision: 10, scale: 7 }),
     dropoffAddress: text("dropoff_address"),
     serviceStatus: passengerServiceEnum("service_status").notNull().default("aktif"),
     isActive: boolean("is_active").notNull().default(true),

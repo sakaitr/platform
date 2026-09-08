@@ -22,6 +22,14 @@ const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 export const dayKey = z.string().trim().regex(DAY, "Tarih GG.AA.YYYY biçiminde seçilmeli.");
 export const clockTime = z.string().trim().regex(HHMM, "Saat SS:DD biçiminde olmalı.");
 
+/** Enlem/boylam — boş bırakılabilir, doluysa sayı olmalı. */
+const coordinate = z
+  .string()
+  .trim()
+  .transform((v) => (v.length === 0 ? null : v.replace(",", ".")))
+  .nullable()
+  .refine((v) => v === null || Number.isFinite(Number(v)), "Koordinatı 40.8000000 biçiminde girin.");
+
 export const PassengerSchema = z.object({
   id: z.string().uuid().optional(),
   fullName: z.string().trim().min(2, "Ad soyad en az 2 karakter olmalı."),
@@ -34,6 +42,8 @@ export const PassengerSchema = z.object({
   branch: optionalText(10),
   barcode: optionalText(50),
   pickupAddress: optionalText(1000),
+  pickupLat: coordinate,
+  pickupLng: coordinate,
   dropoffAddress: optionalText(1000),
   serviceStatus: z.enum(["aktif", "pasif", "askida"]).catch("aktif"),
   isActive: z.coerce.boolean().catch(true),

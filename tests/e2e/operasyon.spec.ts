@@ -184,3 +184,71 @@ test("güzergaha araç atanınca önceki atama kapanır", async ({ page }) => {
   // Tek "güncel" rozeti kalmalı — ikinci atama ilkini kapatır
   await expect(page.getByText("güncel")).toHaveCount(1);
 });
+
+test("rota planı üretilir, kapasiteye göre araçlara bölünür ve aktifleşince harita dolar", async ({
+  page,
+}) => {
+  await login(page, "kisitli-owner@e2e.test");
+
+  // Koordinatlı üç yolcu ekle
+  await page.goto("/operasyon/yolcular");
+  for (const [name, lat, lng] of [
+    ["E2E Plan Yolcu A", "40.8600000", "29.3600000"],
+    ["E2E Plan Yolcu B", "40.8700000", "29.3700000"],
+    ["E2E Plan Yolcu C", "40.8800000", "29.3800000"],
+  ]) {
+    const openButton = page.getByRole("button", { name: "Yeni Kayıt" });
+    if (await openButton.isVisible()) await openButton.click();
+    const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+    await form.getByLabel("Ad Soyad").fill(name!);
+    await form.getByLabel("Biniş Enlem").fill(lat!);
+    await form.getByLabel("Biniş Boylam").fill(lng!);
+    await form.getByRole("button", { name: "Kaydet" }).click();
+    await expect(form.getByText("Kayıt eklendi.")).toBeVisible();
+  }
+
+  // Plan oluştur
+  await page.goto("/operasyon/rota-planlama");
+  await page.getByRole("button", { name: "Yeni Plan" }).click();
+  let form = page.locator("form").filter({ has: page.getByRole("button", { name: "Kaydet" }) });
+  await form.getByLabel("Plan Adı").fill("E2E Sabah Planı");
+  await form.getByRole("button", { name: "Kaydet" }).click();
+  await expect(form.getByText("Plan oluşturuldu. Şimdi rotaları üretebilirsiniz.")).toBeVisible();
+
+  await page.goto("/operasyon/rota-planlama");
+  await page.getByRole("link", { name: "E2E Sabah Planı" }).click();
+  await page.waitForURL(/\/operasyon\/rota-planlama\/[0-9a-f-]{36}$/);
+  const planUrl = page.url();
+
+  // Rotaları üret
+  form = page.locator("form").filter({ has: page.getByRole("button", { name: "Üret" }) });
+  await form.getByLabel("Varış Enlem").fill("40.8000000");
+  await form.getByLabel("Varış Boylam").fill("29.4000000");
+  await form.getByRole("button", { name: "Üret" }).click();
+  // Sunucu aksiyonu bitip sayfa yeniden render edilmeden ilerlemek yarış yaratıyor.
+  await page.waitForLoadState("networkidle");
+  await page.goto(planUrl);
+
+  // Seed'deki 34ABC01 (27) ve 34XYZ02 (16) kapasiteli; üç yolcu ilk araca sığar
+  await expect(page.getByRole("heading", { name: "34ABC01" })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "E2E Plan Yolcu A" })).toBeVisible();
+
+  // Yayınla, sonra aktifleştir
+  await page.getByRole("button", { name: "Yayınlandı" }).click();
+  await page.waitForLoadState("networkidle");
+  await page.goto(planUrl);
+  await page.getByRole("button", { name: "Aktif" }).click();
+  await page.waitForLoadState("networkidle");
+
+  await page.goto("/operasyon/harita");
+  await expect(page.getByRole("row").filter({ hasText: "E2E Plan Yolcu A" })).toBeVisible();
+});
+
+test("aktif plan silinemez", async ({ page }) => {
+  await login(page, "kisitli-owner@e2e.test");
+  await page.goto("/operasyon/rota-planlama?durum=aktif");
+  const activeRows = page.getByRole("row").filter({ hasText: "Aktif" });
+  if ((await activeRows.count()) > 0) {
+    await expect(activeRows.first().getByRole("button", { name: "Sil" })).toHaveCount(0);
+  }
+});
