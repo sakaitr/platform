@@ -25,7 +25,7 @@ export function reportRange(ctx: Pick<ReportContext, "from" | "to">): { from: Da
 
 const num = (value: unknown): number => Number(value ?? 0);
 const money = (value: unknown): number => Math.round(num(value) * 100) / 100;
-/** Yüzde, bir ondalık; payda sıfırsa "—". */
+/** Yüzde, bir ondalık. Payda sıfırsa oran tanımsızdır ve boş gösterim işareti döner. */
 export function percent(part: number, total: number): number | string {
   return total === 0 ? "—" : Math.round((part / total) * 1000) / 10;
 }

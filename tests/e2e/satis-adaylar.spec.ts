@@ -134,3 +134,35 @@ test("toplu işlem: seçilen adayın sıcaklığı değişir, kalıcı silinince
   await page.getByRole("button", { name: "Uygula" }).click();
   await expect(page.getByText("Mavi Tur E2E")).toHaveCount(0);
 });
+
+test("yönetici adayı satışçıya atar: o satışçı görür, diğeri görmez; satışçı yalnız kendine atayabilir", async ({ page }) => {
+  await login(page, "yonetici@e2e.test");
+  await page.goto("/satis/adaylar");
+  await page.getByRole("button", { name: "Yeni aday" }).click();
+  await page.getByLabel("Ad / firma").fill("Atama Deneme Ltd");
+  await page.locator("form").filter({ has: page.getByLabel("Ad / firma") }).getByRole("button", { name: "Kaydet" }).click();
+  await expect(page.getByText("Aday eklendi.")).toBeVisible();
+
+  await page.goto("/satis/adaylar?q=Atama+Deneme");
+  await page.getByRole("link", { name: "Atama Deneme Ltd" }).click();
+  await expect(page).toHaveURL(/\/satis\/adaylar\/[0-9a-f-]{36}$/);
+  const url = page.url();
+  await page.locator('select[name="ownerUserId"]').selectOption({ label: "Satisci Bir" });
+  await page.getByRole("button", { name: "Ata" }).click();
+  await expect(page.getByText("Sahip atandı")).toBeVisible();
+
+  await login(page, "satisci1@e2e.test");
+  await page.goto("/satis/adaylar?q=Atama+Deneme");
+  await expect(page.getByRole("link", { name: "Atama Deneme Ltd" })).toBeVisible();
+
+  await login(page, "satisci2@e2e.test");
+  await page.goto("/satis/adaylar?q=Atama+Deneme");
+  await expect(page.getByRole("link", { name: "Atama Deneme Ltd" })).toHaveCount(0);
+  expect((await page.goto(url))?.status()).toBe(404);
+
+  // Satışçının sahip listesinde yalnız kendisi ve "Sahipsiz" vardır (başkasına atayamaz)
+  await login(page, "satisci1@e2e.test");
+  await page.goto(url);
+  const options = await page.locator('select[name="ownerUserId"] option').allTextContents();
+  expect(options.sort()).toEqual(["Sahipsiz", "Satisci Bir"]);
+});

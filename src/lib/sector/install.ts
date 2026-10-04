@@ -139,7 +139,7 @@ export async function applySectorPack(tenantId: string, packKey: string): Promis
     }
   }
 
-  // Satış CRM varsayılanları — (kiracı, anahtar/ad) benzersiz olduğu için tekrar uygulamada çoğalmaz.
+  // Satış CRM varsayılanları: (kiracı, anahtar/ad) benzersiz olduğu için tekrar uygulamada çoğalmaz.
   if (pack.crmDefaults) {
     await dbAdmin
       .insert(crmStages)

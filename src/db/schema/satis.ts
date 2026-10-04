@@ -18,7 +18,7 @@ import { companies } from "./core";
 import { tenants } from "./tenants";
 
 /**
- * Satış CRM (AtriCRM) — `satis` modülü tabloları.
+ * Satış CRM (AtriCRM): `satis` modülü tabloları.
  * Hepsi `crm_` önekli: mevcut `companies` (cari) ile karışmasın.
  * Aday/fırsat/aktivite görünürlüğü (sahiplik) sorgu katmanında uygulanır, RLS'in üstüne biner.
  */
@@ -80,7 +80,7 @@ const stamps = () => ({
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Pipeline aşamaları — kiracıya göre düzenlenebilir. */
+/** Pipeline aşamaları, kiracıya göre düzenlenebilir. */
 export const crmStages = pgTable(
   "crm_stages",
   {
