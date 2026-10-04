@@ -1,6 +1,12 @@
 import type { TenantAccess } from "@/lib/licensing";
 
-export type ModuleNavChild = { label: string; href: string; capability?: string };
+export type ModuleNavChild = {
+  label: string;
+  href: string;
+  capability?: string;
+  /** Verilirse, bu izne sahip olmayan kullanıcının menüsünde görünmez (sayfa zaten yönlendirir). */
+  permission?: string;
+};
 
 export type ModuleDefinition = {
   key: string;
@@ -63,12 +69,12 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     dependsOn: ["crm"],
     capabilities: ["satis.teklif", "satis.entegrasyon"],
     children: [
-      { label: "Adaylar", href: "/satis/adaylar" },
-      { label: "Pipeline", href: "/satis/pipeline" },
-      { label: "Görevler", href: "/satis/gorevler" },
-      { label: "Teklifler", href: "/satis/teklifler", capability: "satis.teklif" },
-      { label: "Şablonlar", href: "/satis/sablonlar" },
-      { label: "Entegrasyonlar", href: "/satis/entegrasyonlar", capability: "satis.entegrasyon" },
+      { label: "Adaylar", href: "/satis/adaylar", permission: "satis_aday:read" },
+      { label: "Pipeline", href: "/satis/pipeline", permission: "satis_firsat:read" },
+      { label: "Görevler", href: "/satis/gorevler", permission: "satis_aktivite:read" },
+      { label: "Teklifler", href: "/satis/teklifler", capability: "satis.teklif", permission: "satis_teklif:read" },
+      { label: "Şablonlar", href: "/satis/sablonlar", permission: "satis_sablon:read" },
+      { label: "Entegrasyonlar", href: "/satis/entegrasyonlar", capability: "satis.entegrasyon", permission: "satis_entegrasyon:read" },
     ],
   },
   {
@@ -192,12 +198,18 @@ export function buildNavigation(
   });
 }
 
-/** Alt menüden, kapalı alt-yeteneklere ait olanları eler. */
+/**
+ * Alt menüden, kapalı alt-yeteneklere ait olanları eler. `permissions` verilirse kullanıcının izni olmayan
+ * öğeler de elenir (menüde görünüp tıklayınca panele atmasın).
+ */
 export function visibleChildren(
   module: ModuleDefinition,
   access: TenantAccess,
+  permissions?: ReadonlySet<string>,
 ): ModuleNavChild[] {
   return (module.children ?? []).filter(
-    (child) => !child.capability || access.capabilities.has(child.capability),
+    (child) =>
+      (!child.capability || access.capabilities.has(child.capability)) &&
+      (!permissions || !child.permission || permissions.has(child.permission)),
   );
 }

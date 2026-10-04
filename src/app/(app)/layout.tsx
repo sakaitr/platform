@@ -26,7 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       label: translated === termKey ? module.label : translated,
       icon: module.icon,
       href: module.href,
-      children: visibleChildren(module, access).map((c) => ({ label: c.label, href: c.href })),
+      children: visibleChildren(module, access, session.permissions).map((c) => ({ label: c.label, href: c.href })),
     };
   });
 

@@ -20,5 +20,10 @@ export default defineConfig({
     url: "http://localhost:3100/login",
     reuseExistingServer: false,
     timeout: 180_000,
+    // Entegrasyon gizli anahtarlarını şifreleyen ana anahtar. Yalnız e2e için sabit; gerçek ortamda
+    // ortam değişkeninden gelir (docs/integrations/atricrm.md).
+    env: {
+      INTEGRATION_SECRET_KEY: process.env.INTEGRATION_SECRET_KEY ?? "e2e-only-integration-secret-key-0123456789abcdef",
+    },
   },
 });

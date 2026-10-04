@@ -168,4 +168,18 @@ describe("satis_crm sektör paketi", () => {
     ]);
     expect(satis.dependsOn).toContain("crm");
   });
+
+  it("menü: izni olmayan kullanıcı o alt menüyü görmez (Satışçı'da Entegrasyonlar yok)", async () => {
+    const t = await seedSatisTenant();
+    const access = await getTenantAccess(t.id);
+    const satis = getModule("satis")!;
+    const rep = new Set(["satis_aday:read", "satis_firsat:read", "satis_aktivite:read", "satis_teklif:read", "satis_sablon:read"]);
+    expect(visibleChildren(satis, access, rep).map((c) => c.label)).toEqual(["Adaylar", "Pipeline", "Görevler", "Teklifler", "Şablonlar"]);
+    expect(visibleChildren(satis, access, new Set(["satis_aday:read"])).map((c) => c.label)).toEqual(["Adaylar"]);
+    // izin kümesi verilmezse yalnız yetenek süzgeci çalışır (geriye uyumlu)
+    expect(visibleChildren(satis, access).map((c) => c.label)).toHaveLength(6);
+    // yetenek ve izin birlikte: izin var ama yetenek yok
+    const stripped = { ...access, capabilities: new Set<string>() };
+    expect(visibleChildren(satis, stripped, new Set([...rep, "satis_entegrasyon:read"])).map((c) => c.label)).toEqual(["Adaylar", "Pipeline", "Görevler", "Şablonlar"]);
+  });
 });

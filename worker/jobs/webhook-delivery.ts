@@ -1,5 +1,5 @@
 import { enqueueWebhookDelivery, type WebhookJob } from "@/lib/queue";
-import { attemptDelivery, findDueDeliveryIds, purgeOldWebhookData } from "@/modules/satis/webhook-delivery";
+import { attemptDelivery, findDueDeliveryIds, purgeOldWebhookData, type DeliveryDeps } from "@/modules/satis/webhook-delivery";
 
 /**
  * BullMQ işleyicisi: tek teslimi dener. Başarısızsa bekleme süresi (1 dk, 5 dk, 30 dk, 2 sa, 12 sa)
@@ -7,8 +7,8 @@ import { attemptDelivery, findDueDeliveryIds, purgeOldWebhookData } from "@/modu
  * gecikmeli iş kaybolsa bile teslimi vakti gelince yeniden bulur. Çift tetiklenmeye karşı koruma
  * `attemptDelivery` içindeki atomik kiradadır.
  */
-export async function processWebhookJob(data: WebhookJob): Promise<string> {
-  const result = await attemptDelivery(data.deliveryId);
+export async function processWebhookJob(data: WebhookJob, deps: DeliveryDeps = {}): Promise<string> {
+  const result = await attemptDelivery(data.deliveryId, deps);
   if (result.outcome === "retry") {
     await enqueueWebhookDelivery(data.deliveryId, {
       delayMs: result.retryInMs,

@@ -21,7 +21,7 @@ import { hashPassword } from "@/lib/auth";
 import { createRole } from "@/lib/rbac";
 import { provisionTenant } from "@/lib/sector/install";
 
-const E2E_SLUGS = ["e2e-lojistik", "e2e-pilates", "e2e-kisitli", "e2e-satis", "e2e-satis-b"];
+const E2E_SLUGS = ["e2e-lojistik", "e2e-pilates", "e2e-kisitli", "e2e-satis", "e2e-satis-b", "e2e-satis-c"];
 
 /** Satış CRM (AtriCRM) kiracıları: yönetici, iki satışçı + izolasyon sınaması için ikinci kiracı. */
 async function seedSatis(): Promise<void> {
@@ -41,6 +41,19 @@ async function seedSatis(): Promise<void> {
     ownerName: "Satis B Owner",
     ownerPassword: "E2eTest1234!",
   });
+  // C kiracısında entegrasyon yeteneği kapalı (plan kapısı): menü, sayfa ve uç noktalar kapalı olmalı
+  const { tenantId: tenantC } = await provisionTenant({
+    name: "E2E Satis C",
+    slug: "e2e-satis-c",
+    sectorPack: "satis_crm",
+    ownerEmail: "satis-c@e2e.test",
+    ownerName: "Satis C Owner",
+    ownerPassword: "E2eTest1234!",
+  });
+  await dbAdmin
+    .delete(tenantCapabilities)
+    .where(and(eq(tenantCapabilities.tenantId, tenantC), eq(tenantCapabilities.capabilityKey, "satis.entegrasyon")));
+
   // B kiracısında teklif yeteneği kapalı: menüden gizlenir, URL ve server action da çalışmaz
   await dbAdmin
     .delete(tenantCapabilities)
