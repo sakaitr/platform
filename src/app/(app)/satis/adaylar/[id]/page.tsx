@@ -14,6 +14,7 @@ import {
   setLeadStatusAction,
   setLeadTemperatureAction,
 } from "@/modules/satis/actions";
+import { completeTaskAction, createFollowUpTaskAction, deleteActivityAction, saveDealAction } from "@/modules/satis/pipeline-actions";
 import { leadFormFields } from "@/modules/satis/lead-form";
 import {
   ACTIVITY_LABEL,
@@ -28,6 +29,7 @@ import {
 import { whatsappNumber } from "@/modules/satis/normalize";
 import { getLeadDetail, listOwnerOptions } from "@/modules/satis/queries";
 import { canSeeAll } from "@/modules/satis/visibility";
+import { ActivityForm } from "../../_components/activity-form";
 
 const ERRORS: Record<string, string> = {
   already_converted: "Bu aday zaten müşteriye dönüştürülmüş.",
@@ -63,6 +65,10 @@ export default async function AdayDetayPage({
   const seeAll = canSeeAll(session);
   const canUpdate = session.permissions.has("satis_aday:update");
   const canDelete = session.permissions.has("satis_aday:delete");
+  const canActivity = session.permissions.has("satis_aktivite:create");
+  const canTaskUpdate = session.permissions.has("satis_aktivite:update");
+  const canActivityDelete = session.permissions.has("satis_aktivite:delete");
+  const canCreateDeal = session.permissions.has("satis_firsat:create");
   const converted = lead.status === "converted";
   const editing = one(query, "duzenle") === "1" && canUpdate;
   const errorText = ERRORS[one(query, "hata") ?? ""];
@@ -91,6 +97,17 @@ export default async function AdayDetayPage({
       />
 
       {errorText ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errorText}</p> : null}
+
+      {lead.status === "contacted" && !lead.followUpAt && canActivity ? (
+        <Card className="flex flex-wrap items-center justify-between gap-3 border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm text-amber-900">Görüşüldü olarak işaretlendi ama takip tarihi yok. 3 gün sonrası için takip görevi eklensin mi?</p>
+          <form action={createFollowUpTaskAction}>
+            <input type="hidden" name="leadId" value={lead.id} />
+            <input type="hidden" name="days" value="3" />
+            <Button type="submit">Takip görevi ekle</Button>
+          </form>
+        </Card>
+      ) : null}
 
       {editing ? (
         <EntityForm
@@ -252,7 +269,22 @@ export default async function AdayDetayPage({
         </Card>
 
         <Card className="p-4">
-          <h2 className="mb-3 text-sm font-semibold">{t("deal_plural")}</h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold">{t("deal_plural")}</h2>
+            {canCreateDeal ? (
+              <EntityForm
+                action={saveDealAction}
+                fields={[
+                  { name: "title", label: "Başlık", type: "text", required: true },
+                  { name: "value", label: "Tutar (TL)", type: "text" },
+                  { name: "expectedCloseDate", label: "Beklenen kapanış", type: "date" },
+                ]}
+                values={{ title: `${lead.name}: ${lead.service ?? "Satış fırsatı"}` }}
+                extraHidden={{ leadId: lead.id }}
+                openLabel={`${t("deal")} ekle`}
+              />
+            ) : null}
+          </div>
           {deals.length === 0 ? (
             <p className="text-sm text-neutral-500">
               {converted ? "Bu adaya bağlı fırsat yok." : `Müşteriye dönüştürünce ilk ${t("deal").toLocaleLowerCase("tr")} otomatik açılır.`}
@@ -261,7 +293,7 @@ export default async function AdayDetayPage({
             <ul className="divide-y divide-neutral-100">
               {deals.map((d) => (
                 <li key={d.id} className="flex items-center justify-between py-2 text-sm">
-                  <span className="font-medium">{d.title}</span>
+                  <Link href={`/satis/pipeline/${d.id}`} className="font-medium hover:underline">{d.title}</Link>
                   <span className="flex items-center gap-2 text-xs text-neutral-500">
                     {Number(d.value).toLocaleString("tr-TR")} {d.currency}
                     <Badge tone={d.stageKind === "won" ? "ok" : d.stageKind === "lost" ? "bad" : "info"}>{d.stageLabel}</Badge>
@@ -278,19 +310,38 @@ export default async function AdayDetayPage({
         </Card>
       </div>
 
-      <Card className="p-4">
-        <h2 className="mb-3 text-sm font-semibold">Hareketler</h2>
+      <Card className="space-y-4 p-4">
+        <h2 className="text-sm font-semibold">Hareketler ve görevler</h2>
+        {canActivity ? <ActivityForm leadId={lead.id} owners={owners} canAssign={seeAll} /> : null}
         {activities.length === 0 ? (
           <p className="text-sm text-neutral-500">Henüz hareket yok.</p>
         ) : (
           <ul className="space-y-2">
             {activities.map((a) => (
-              <li key={a.id} className="flex gap-3 text-sm">
+              <li key={a.id} className="flex items-start gap-3 text-sm">
                 <span className="w-32 shrink-0 text-xs text-neutral-400">{formatDateTime(a.createdAt)}</span>
-                <span>
+                <span className="flex-1">
                   <span className="mr-2 text-xs text-neutral-500">{a.isSystem ? "Sistem" : ACTIVITY_LABEL[a.type]}</span>
-                  {a.subject}
+                  <span className={a.type === "task" && a.doneAt ? "text-neutral-400 line-through" : ""}>{a.subject}</span>
+                  {a.type === "task" ? (
+                    <span className="ml-2 text-xs text-neutral-500">{a.dueAt ? `vade ${formatDateTime(a.dueAt)}` : "vadesiz"}</span>
+                  ) : null}
                   {a.note ? <span className="block text-xs text-neutral-500">{a.note}</span> : null}
+                </span>
+                <span className="flex gap-1">
+                  {a.type === "task" && canTaskUpdate ? (
+                    <form action={completeTaskAction}>
+                      <input type="hidden" name="id" value={a.id} />
+                      {a.doneAt ? <input type="hidden" name="reopen" value="1" /> : null}
+                      <Button type="submit" variant="ghost">{a.doneAt ? "Yeniden aç" : "Tamamla"}</Button>
+                    </form>
+                  ) : null}
+                  {!a.isSystem && canActivityDelete ? (
+                    <form action={deleteActivityAction}>
+                      <input type="hidden" name="id" value={a.id} />
+                      <Button type="submit" variant="danger">Sil</Button>
+                    </form>
+                  ) : null}
                 </span>
               </li>
             ))}

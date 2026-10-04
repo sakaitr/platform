@@ -1,5 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { crmLeads, users } from "@/db/schema";
+import { crmActivities, crmDeals, crmLeads, users } from "@/db/schema";
 import type { TenantTx } from "@/db/tenant";
 import { canSeeAll, ownerVisibility, type VisibilitySession } from "./visibility";
 
@@ -41,4 +41,44 @@ export async function resolveOwner(
     .from(users)
     .where(and(eq(users.tenantId, session.tenantId), eq(users.id, requested), eq(users.isActive, true)));
   return user ? { ok: true, ownerUserId: user.id } : { ok: false, error: "Seçilen kullanıcı bulunamadı." };
+}
+
+/** Satışçı yalnız görebildiği fırsatı değiştirebilir (sahibi kendisi ya da sahipsiz). */
+export async function findVisibleDealIds(
+  tx: TenantTx,
+  session: VisibilitySession,
+  ids: readonly string[],
+): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const rows = await tx
+    .select({ id: crmDeals.id })
+    .from(crmDeals)
+    .where(
+      and(
+        eq(crmDeals.tenantId, session.tenantId),
+        inArray(crmDeals.id, [...ids]),
+        ownerVisibility(crmDeals.ownerUserId, session),
+      ),
+    );
+  return rows.map((r) => r.id);
+}
+
+/** Görev: atanan kişi kendisi ya da sahipsiz olmalı (yönetici hepsini görür). */
+export async function findVisibleActivityIds(
+  tx: TenantTx,
+  session: VisibilitySession,
+  ids: readonly string[],
+): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const rows = await tx
+    .select({ id: crmActivities.id })
+    .from(crmActivities)
+    .where(
+      and(
+        eq(crmActivities.tenantId, session.tenantId),
+        inArray(crmActivities.id, [...ids]),
+        ownerVisibility(crmActivities.assigneeUserId, session),
+      ),
+    );
+  return rows.map((r) => r.id);
 }

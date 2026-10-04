@@ -4,7 +4,9 @@ import { dbAdmin } from "@/db/admin";
 import { and, eq } from "drizzle-orm";
 import {
   companies,
+  crmDeals,
   crmLeads,
+  crmStages,
   passengers,
   roles,
   portalUserCompanies,
@@ -60,6 +62,15 @@ async function seedSatis(): Promise<void> {
     { tenantId, name: "Birinci Satiscinin Adayi", ownerUserId: repOne!.id, source: "manual" },
     { tenantId, name: "Ikinci Satiscinin Adayi", ownerUserId: repTwo!.id, source: "manual" },
     { tenantId, name: "Sahipsiz Aday", source: "manual" },
+  ]);
+
+  const [firstStage] = await dbAdmin
+    .select({ id: crmStages.id })
+    .from(crmStages)
+    .where(and(eq(crmStages.tenantId, tenantId), eq(crmStages.key, "yeni")));
+  await dbAdmin.insert(crmDeals).values([
+    { tenantId, title: "Birinci Satiscinin Firsati", stageId: firstStage!.id, ownerUserId: repOne!.id, value: "1000.00" },
+    { tenantId, title: "Ikinci Satiscinin Firsati", stageId: firstStage!.id, ownerUserId: repTwo!.id, value: "2000.00" },
   ]);
 }
 
