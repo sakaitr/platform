@@ -9,3 +9,6 @@ tsconfig.tsbuildinfo
 playwright-report/
 test-results/
 .uploads/
+
+# yerel Redis anlık görüntüsü
+dump.rdb
