@@ -17,6 +17,8 @@ export default defineConfig({
       DATABASE_URL: "postgresql://agno_app:app_dev@localhost:5432/agno_platform_test",
       DATABASE_ADMIN_URL: "postgresql://agno_owner:owner_dev@localhost:5432/agno_platform_test",
       REDIS_URL: "redis://localhost:6379",
+      // Yalnız testler için sabit anahtar (gerçek ortamda ortam değişkeninden gelir)
+      INTEGRATION_SECRET_KEY: "test-only-integration-secret-key-0123456789abcdef",
     },
   },
   resolve: { alias: { "@": path.resolve(__dirname, "./src") } },

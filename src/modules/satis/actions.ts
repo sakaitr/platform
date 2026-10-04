@@ -21,6 +21,7 @@ import {
 } from "./leads";
 import { BulkSchema, ContactFormSchema, followUpFromDate, OPEN_STATUSES, readLeadForm, TEMPERATURES } from "./validators";
 import { STATUS_LABEL } from "./labels";
+import { emitLeadEvent } from "./webhook-outbox";
 import { findVisibleLeadIds, resolveOwner } from "./access";
 import { canSeeAll } from "./visibility";
 
@@ -125,6 +126,7 @@ export async function setLeadStatusAction(formData: FormData): Promise<void> {
       subject: `Durum: ${STATUS_LABEL[current.status]} → ${STATUS_LABEL[status]}`,
       userId: session.userId,
     });
+    await emitLeadEvent(tx, session.tenantId, "lead.updated", id);
   });
   refresh(id);
 }
@@ -142,6 +144,7 @@ export async function setLeadTemperatureAction(formData: FormData): Promise<void
       .update(crmLeads)
       .set({ temperature: temperature as "hot" | "warm" | "cold" | null, updatedAt: new Date() })
       .where(and(eq(crmLeads.tenantId, session.tenantId), eq(crmLeads.id, id)));
+    await emitLeadEvent(tx, session.tenantId, "lead.updated", id);
   });
   refresh(id);
 }
@@ -164,6 +167,7 @@ export async function assignLeadAction(formData: FormData): Promise<void> {
       subject: owner.ownerUserId ? "Sahip atandı" : "Sahip kaldırıldı",
       userId: session.userId,
     });
+    await emitLeadEvent(tx, session.tenantId, "lead.updated", id);
     return true;
   });
   if (!changed) return;
@@ -223,6 +227,7 @@ export async function bulkLeadAction(formData: FormData): Promise<void> {
         .update(crmLeads)
         .set({ status: value as LeadStatus, updatedAt: new Date() })
         .where(and(scope, inArray(crmLeads.status, ["new", "contacted", "qualified", "disqualified"])));
+      for (const leadId of visible) await emitLeadEvent(tx, session.tenantId, "lead.updated", leadId);
       return visible.length;
     }
     if (op === "temperature") {
@@ -232,11 +237,13 @@ export async function bulkLeadAction(formData: FormData): Promise<void> {
         .update(crmLeads)
         .set({ temperature: temperature as "hot" | "warm" | "cold" | null, updatedAt: new Date() })
         .where(scope);
+      for (const leadId of visible) await emitLeadEvent(tx, session.tenantId, "lead.updated", leadId);
       return visible.length;
     }
     const owner = await resolveOwner(tx, session, value === "" ? null : value);
     if (!owner.ok) return 0;
     await tx.update(crmLeads).set({ ownerUserId: owner.ownerUserId, updatedAt: new Date() }).where(scope);
+    for (const leadId of visible) await emitLeadEvent(tx, session.tenantId, "lead.updated", leadId);
     return visible.length;
   });
 

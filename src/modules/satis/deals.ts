@@ -3,6 +3,7 @@ import { crmActivities, crmDeals, crmLeads, crmStages, type CrmStage } from "@/d
 import type { TenantTx } from "@/db/tenant";
 import { logSystemActivity } from "./leads";
 import { ensureDefaultStages } from "./stage-service";
+import { emitDealMoved, emitLeadEvent } from "./webhook-outbox";
 
 export class DealError extends Error {
   constructor(
@@ -159,6 +160,9 @@ export async function moveDeal(
     note: to.kind === "lost" ? `Neden: ${reason}` : null,
     userId: options.userId ?? null,
   });
+
+  await emitDealMoved(tx, tenantId, dealId, from, to);
+  if (leadConverted && deal.leadId) await emitLeadEvent(tx, tenantId, "lead.updated", deal.leadId);
 
   return { changed: true, from, to, leadId: deal.leadId, leadConverted };
 }

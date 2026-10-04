@@ -1,18 +1,21 @@
 import "dotenv/config";
 import { Worker } from "bullmq";
 import IORedis from "ioredis";
-import type { EmailJob } from "@/lib/queue";
+import type { EmailJob, WebhookJob } from "@/lib/queue";
 import { sendEmail } from "./jobs/email";
 import { enqueueEmail } from "@/lib/queue";
 import { istanbulDayKey } from "@/lib/time";
 import { runLicenseExpiryCheck } from "./jobs/license-expiry";
 import { runSatisDigest, shouldRunDigest } from "./jobs/satis-digest";
+import { processWebhookJob, purgeOldWebhookData, sweepDueDeliveries } from "./jobs/webhook-delivery";
 
 const connection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
   maxRetriesPerRequest: null,
 });
 
 new Worker<EmailJob>("email", async (job) => sendEmail(job.data), { connection, concurrency: 5 });
+
+new Worker<WebhookJob>("webhooks", async (job) => processWebhookJob(job.data), { connection, concurrency: 10 });
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
@@ -51,6 +54,32 @@ async function digestLoop(): Promise<void> {
   setTimeout(() => void digestLoop(), FIFTEEN_MINUTES_MS);
 }
 
+const FIVE_SECONDS_MS = 5_000;
+const SIX_HOURS_MS = 6 * ONE_HOUR_MS;
+
+/** Süpürücü: vakti gelmiş teslimleri kuyruğa alır (yeni olaylar ve kaybolmuş gecikmeli işler için). */
+async function webhookSweepLoop(): Promise<void> {
+  try {
+    await sweepDueDeliveries();
+  } catch (error: unknown) {
+    console.error("[webhooks] sweep failed:", error);
+  }
+  setTimeout(() => void webhookSweepLoop(), FIVE_SECONDS_MS);
+}
+
+/** 30 günden eski teslim ve gelen olay günlüğü (yükte kişisel veri var). */
+async function webhookPurgeLoop(): Promise<void> {
+  try {
+    const result = await purgeOldWebhookData();
+    if (result.deliveries + result.inbound > 0) console.log(`[webhooks] purged deliveries=${result.deliveries} inbound=${result.inbound}`);
+  } catch (error: unknown) {
+    console.error("[webhooks] purge failed:", error);
+  }
+  setTimeout(() => void webhookPurgeLoop(), SIX_HOURS_MS);
+}
+
 console.log("Agno Platform worker started");
 void licenseLoop();
 void digestLoop();
+void webhookSweepLoop();
+void webhookPurgeLoop();

@@ -14,6 +14,7 @@ import type { TenantTx } from "@/db/tenant";
 import { buildLeadKeys, type LeadKeys } from "./normalize";
 import { resolveScore, type Temperature } from "./scoring";
 import { ensureDefaultStages } from "./stage-service";
+import { emitLeadDeleted, emitLeadEvent } from "./webhook-outbox";
 
 /**
  * Aday yaşam döngüsünün tek yeri: form, CSV, Atricard webhook'u ve API hep buradan geçer.
@@ -237,6 +238,7 @@ export async function createLeadIfNew(
     note: `Kaynak: ${input.source}`,
     userId: input.createdBy ?? null,
   });
+  await emitLeadEvent(tx, tenantId, "lead.created", created.id);
   return { status: "created", id: created.id };
 }
 
@@ -288,6 +290,7 @@ export async function updateLead(
       updatedAt: new Date(),
     })
     .where(and(eq(crmLeads.tenantId, tenantId), eq(crmLeads.id, id)));
+  await emitLeadEvent(tx, tenantId, "lead.updated", id);
   return { status: "updated" };
 }
 
@@ -303,6 +306,7 @@ export async function removeLeads(
   tx: TenantTx,
   tenantId: string,
   leadIds: readonly string[],
+  reason: RemoveReason = "owner_deleted",
 ): Promise<{ id: string; source: LeadSource; externalId: string | null }[]> {
   if (leadIds.length === 0) return [];
   const rows = await tx
@@ -327,6 +331,7 @@ export async function removeLeads(
       ),
     ),
   );
+  for (const row of rows) await emitLeadDeleted(tx, tenantId, row.id, reason);
   return rows;
 }
 
@@ -339,6 +344,7 @@ export async function eraseExternalLead(
   tenantId: string,
   source: LeadSource,
   externalId: string,
+  reason: RemoveReason = "erasure_request",
 ): Promise<"deleted" | "anonymized" | "not_found"> {
   await tx
     .insert(crmDeletedExternal)
@@ -367,10 +373,12 @@ export async function eraseExternalLead(
 
   if (!deal) {
     await tx.delete(crmLeads).where(and(eq(crmLeads.tenantId, tenantId), eq(crmLeads.id, lead.id)));
+    await emitLeadDeleted(tx, tenantId, lead.id, reason);
     return "deleted";
   }
 
   await anonymizeLead(tx, tenantId, lead.id);
+  await emitLeadDeleted(tx, tenantId, lead.id, reason);
   return "anonymized";
 }
 
@@ -517,6 +525,7 @@ export async function convertLead(
     subject: "Müşteriye dönüştürüldü",
     userId,
   });
+  await emitLeadEvent(tx, tenantId, "lead.updated", lead.id);
 
   return { companyId: company!.id, dealId: deal!.id };
 }
