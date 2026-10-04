@@ -8,3 +8,4 @@ out/
 tsconfig.tsbuildinfo
 playwright-report/
 test-results/
+.uploads/
