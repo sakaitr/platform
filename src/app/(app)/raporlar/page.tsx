@@ -1,12 +1,15 @@
 import { requirePermission } from "@/lib/auth";
+import { getTenantAccess } from "@/lib/licensing";
 import { ensureReportsRegistered, listCategories, listReports } from "@/lib/reports/engine";
 
 export default async function ReportsPage() {
   const session = await requirePermission("raporlar:read");
   await ensureReportsRegistered();
 
-  const reports = listReports(session.permissions);
-  const categories = listCategories(session.permissions);
+  const access = await getTenantAccess(session.tenantId);
+  const licensed = new Set([...access.modules].filter(([, m]) => m.allowed).map(([key]) => key));
+  const reports = listReports(session.permissions, licensed);
+  const categories = listCategories(session.permissions, licensed);
 
   return (
     <div className="space-y-6">

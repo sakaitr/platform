@@ -11,14 +11,19 @@ export function registerReport(def: ReportDef): void {
   REPORT_CATALOG[def.key] = def;
 }
 
-export function listReports(permissions: Set<string>): ReportDef[] {
+/**
+ * `allowedModules` verilirse yalnız lisanslı modüllerin raporları döner. Verilmezse süzgeç uygulanmaz
+ * (eski çağıranlarla geriye uyumlu); modül bağlı raporlar için çağıran bunu vermelidir.
+ */
+export function listReports(permissions: Set<string>, allowedModules?: ReadonlySet<string>): ReportDef[] {
   return Object.values(REPORT_CATALOG)
     .filter((def) => permissions.has(def.permission))
+    .filter((def) => !def.module || !allowedModules || allowedModules.has(def.module))
     .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
 }
 
-export function listCategories(permissions: Set<string>): string[] {
-  return [...new Set(listReports(permissions).map((r) => r.category))];
+export function listCategories(permissions: Set<string>, allowedModules?: ReadonlySet<string>): string[] {
+  return [...new Set(listReports(permissions, allowedModules).map((r) => r.category))];
 }
 
 export async function runReport(key: string, ctx: ReportContext): Promise<ReportResult> {
@@ -41,12 +46,14 @@ export async function ensureReportsRegistered(): Promise<void> {
   const { registerFiloReports } = await import("@/modules/filo/reports");
   const { registerMuhasebeReports } = await import("@/modules/muhasebe/reports");
   const { registerEkRaporlar } = await import("@/modules/muhasebe/reports-ek");
+  const { registerSatisReports } = await import("@/modules/satis/reports");
   registerCoreReports();
   registerOperasyonReports();
   registerOperasyonEkRaporlar();
   registerFiloReports();
   registerMuhasebeReports();
   registerEkRaporlar();
+  registerSatisReports();
   bootstrapped = true;
 }
 

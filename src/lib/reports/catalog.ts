@@ -25,6 +25,11 @@ export type ReportDef = {
   description: string;
   /** Görüntülemek için gereken izin — örn. "raporlar:read" */
   permission: string;
+  /**
+   * Raporun ait olduğu modül. Verilirse kiracının o modülü lisanslı olması gerekir: lisanssız modülün
+   * raporu listede görünmez ve API'den indirilemez (yalnız izne bakmak sahibi olan herkese gösterirdi).
+   */
+  module?: string;
   needsDateRange: boolean;
   run: (ctx: ReportContext) => Promise<ReportResult>;
 };

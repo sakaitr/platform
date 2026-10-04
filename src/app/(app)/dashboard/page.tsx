@@ -5,6 +5,7 @@ import { getTenantAccess } from "@/lib/licensing";
 import { buildNavigation } from "@/lib/modules/registry";
 import { getPack } from "@/lib/sector/install";
 import { dashboardTiles } from "@/modules/dashboard/queries";
+import { satisTiles } from "@/modules/satis/dashboard";
 
 export default async function DashboardPage() {
   const session = await requireAuth();
@@ -21,6 +22,8 @@ export default async function DashboardPage() {
     allowed,
     access.capabilities,
   );
+  // Satış kartları görünürlüğe (Satışçı yalnız kendi kayıtları) uyduğu için kullanıcı kimliği gerekir
+  if (allowed.has("satis")) tiles.push(...(await satisTiles(session)));
 
   return (
     <div className="space-y-6">

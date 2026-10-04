@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth";
+import { getTenantAccess } from "@/lib/licensing";
 import { ensureReportsRegistered, REPORT_CATALOG, runReport } from "@/lib/reports/engine";
 import { buildCsv, buildXlsx, contentDisposition } from "@/lib/reports/export";
 
@@ -15,6 +16,13 @@ export async function GET(
   if (!def) return NextResponse.json({ error: "Rapor bulunamadı." }, { status: 404 });
   if (!session.permissions.has(def.permission)) {
     return NextResponse.json({ error: "Bu rapor için yetkiniz yok." }, { status: 403 });
+  }
+
+  if (def.module) {
+    const access = await getTenantAccess(session.tenantId);
+    if (access.modules.get(def.module)?.allowed !== true) {
+      return NextResponse.json({ error: "Bu rapor lisansınıza dahil değil." }, { status: 403 });
+    }
   }
 
   const url = request.nextUrl;
