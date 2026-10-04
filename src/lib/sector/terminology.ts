@@ -21,6 +21,10 @@ export const SYSTEM_TERMS: Record<string, string> = {
   staff_plural: "Personeller",
   asset: "Varlık",
   asset_plural: "Varlıklar",
+  lead: "Aday",
+  lead_plural: "Adaylar",
+  deal: "Fırsat",
+  deal_plural: "Fırsatlar",
   document: "Belge",
   document_plural: "Belgeler",
 };

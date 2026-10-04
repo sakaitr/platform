@@ -8,6 +8,7 @@ import { MODULE_KEYS } from "@/lib/modules/keys";
 import { withTenant } from "@/db/tenant";
 import { createInvite, requirePermission, revokeUserSessions } from "@/lib/auth";
 import { setUserScope } from "@/lib/scope";
+import { assertWithinLimit, LimitExceededError } from "@/lib/limits";
 import { writeAuditLog } from "@/lib/audit";
 import { tenantTag } from "@/lib/cache";
 import { enqueueEmail } from "@/lib/queue";
@@ -24,6 +25,13 @@ export async function inviteUserAction(_prev: ActionState, formData: FormData): 
     role: formData.get("role"),
   });
   if (!parsed.success) return { error: parsed.error.issues[0]!.message };
+
+  try {
+    await assertWithinLimit(session.tenantId, "satis", "max_users");
+  } catch (error: unknown) {
+    if (error instanceof LimitExceededError) return { error: error.message };
+    throw error;
+  }
 
   const token = await createInvite(session.tenantId, parsed.data);
   await enqueueEmail({

@@ -26,6 +26,20 @@ export type PackRole = {
   permissions: readonly string[];
 };
 
+export type PackPipelineStage = {
+  key: string;
+  label: string;
+  kind: "open" | "won" | "lost";
+  color?: string;
+};
+
+export type PackMessageTemplate = {
+  name: string;
+  channel: "whatsapp" | "email";
+  subject?: string;
+  body: string;
+};
+
 export type SectorPack = {
   key: string;
   name: string;
@@ -42,6 +56,11 @@ export type SectorPack = {
   numbering: readonly PackSequence[];
   /** Kurulacak varsayılan roller */
   roles: readonly PackRole[];
+  /** Satış CRM varsayılanları: pipeline aşamaları ve örnek mesaj şablonları. */
+  crmDefaults?: {
+    stages: readonly PackPipelineStage[];
+    templates: readonly PackMessageTemplate[];
+  };
 };
 
 const COMMON_NUMBERING: readonly PackSequence[] = [
@@ -69,6 +88,17 @@ const COMMON_ROLES: readonly PackRole[] = [
     permissions: ALL_PERMISSIONS.filter((p) => p.endsWith(":read")),
   },
 ];
+
+const SATIS_RESOURCES = [
+  "satis_aday",
+  "satis_firsat",
+  "satis_aktivite",
+  "satis_teklif",
+  "satis_sablon",
+] as const;
+
+/** Yazma yetkisi: oluştur + güncelle (silme yok). */
+const satisWrite = SATIS_RESOURCES.flatMap((r) => [`${r}:read`, `${r}:create`, `${r}:update`]);
 
 /**
  * Sektör paketleri. Kod içinde tanımlı: versiyonlanır, tip güvenli, test edilir.
@@ -270,5 +300,81 @@ export const SECTOR_PACKS: Record<string, SectorPack> = {
         permissions: ["dashboard:read", "musteriler:read", "araclar:read"],
       },
     ],
+  },
+
+  satis_crm: {
+    key: "satis_crm",
+    name: "AtriCRM (Satış CRM)",
+    version: "1.0.0",
+    modules: ["dashboard", "crm", "satis", "raporlar", "admin"],
+    capabilities: ["satis.teklif", "satis.entegrasyon"],
+    terminology: {
+      customer: "Müşteri",
+      customer_plural: "Müşteriler",
+      lead: "Aday",
+      lead_plural: "Adaylar",
+      deal: "Fırsat",
+      deal_plural: "Fırsatlar",
+    },
+    entityFields: [],
+    numbering: [{ sequenceKey: "teklif", prefix: "TKL", padding: 5, periodReset: "yearly" }],
+    roles: [
+      ...COMMON_ROLES,
+      {
+        key: "satis_yonetici",
+        label: "Satış Yöneticisi",
+        hierarchyLevel: 3,
+        permissions: [
+          "dashboard:read",
+          "firmalar:read", "firmalar:create", "firmalar:update",
+          "raporlar:read", "raporlar:export",
+          ...ALL_PERMISSIONS.filter((p) => p.startsWith("satis_")),
+        ],
+      },
+      {
+        key: "satisci",
+        label: "Satışçı",
+        hierarchyLevel: 1,
+        permissions: [
+          "dashboard:read", "firmalar:read", "raporlar:read",
+          ...satisWrite,
+          "satis_asama:read",
+        ],
+      },
+      {
+        key: "satis_izleyici",
+        label: "Satış İzleyici",
+        hierarchyLevel: 0,
+        permissions: [
+          "dashboard:read", "firmalar:read", "raporlar:read",
+          ...SATIS_RESOURCES.map((r) => `${r}:read`),
+          "satis_hepsi:read", "satis_asama:read",
+        ],
+      },
+    ],
+    crmDefaults: {
+      stages: [
+        { key: "yeni", label: "Yeni", kind: "open", color: "#64748b" },
+        { key: "gorusuldu", label: "Görüşüldü", kind: "open", color: "#0ea5e9" },
+        { key: "teklif", label: "Teklif", kind: "open", color: "#f59e0b" },
+        { key: "kazanildi", label: "Kazanıldı", kind: "won", color: "#10b981" },
+        { key: "kaybedildi", label: "Kaybedildi", kind: "lost", color: "#ef4444" },
+      ],
+      templates: [
+        {
+          name: "Tanıştığımıza memnun oldum",
+          channel: "whatsapp",
+          body:
+            "Merhaba {ad}, tanıştığımıza memnun oldum. {firma} için {hizmet} konusunda size nasıl yardımcı olabileceğimizi konuşmak isterim. Uygun olduğunuzda yazabilirsiniz.",
+        },
+        {
+          name: "Teklif gönderimi",
+          channel: "email",
+          subject: "{firma} için teklifimiz",
+          body:
+            "Merhaba {ad},\n\n{hizmet} konusundaki görüşmemizin ardından teklifimizi iletiyorum. Sorularınız olursa memnuniyetle yanıtlarım.\n\nİyi çalışmalar.",
+        },
+      ],
+    },
   },
 };

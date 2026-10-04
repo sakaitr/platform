@@ -55,6 +55,23 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     children: [{ label: "Firmalar", href: "/crm/firmalar" }],
   },
   {
+    key: "satis",
+    label: "Satış CRM",
+    icon: "Handshake",
+    href: "/satis/adaylar",
+    permission: "satis_aday:read",
+    dependsOn: ["crm"],
+    capabilities: ["satis.teklif", "satis.entegrasyon"],
+    children: [
+      { label: "Adaylar", href: "/satis/adaylar" },
+      { label: "Pipeline", href: "/satis/pipeline" },
+      { label: "Görevler", href: "/satis/gorevler" },
+      { label: "Teklifler", href: "/satis/teklifler", capability: "satis.teklif" },
+      { label: "Şablonlar", href: "/satis/sablonlar" },
+      { label: "Entegrasyonlar", href: "/satis/entegrasyonlar", capability: "satis.entegrasyon" },
+    ],
+  },
+  {
     key: "gorevler",
     label: "Görevler",
     icon: "ListChecks",

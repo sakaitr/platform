@@ -9,3 +9,4 @@ export * from "./filo";
 export * from "./muhasebe";
 export * from "./isbirligi";
 export * from "./imports";
+export * from "./satis";

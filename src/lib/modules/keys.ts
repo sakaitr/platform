@@ -9,6 +9,7 @@ export const MODULE_KEYS = [
   "operasyon",
   "filo",
   "crm",
+  "satis",
   "muhasebe",
   "gorevler",
   "destek",

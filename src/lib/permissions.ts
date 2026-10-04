@@ -59,6 +59,17 @@ export const PERMISSION_CATALOG: Record<string, readonly string[]> = {
   musteriler: [...READ_WRITE],
   portal: ["read", "manage"],
 
+  // Satış CRM (AtriCRM). `satis_hepsi:read` = tüm adayları/fırsatları görür (Yönetici);
+  // olmayan kullanıcı yalnız kendine atanmış ya da sahipsiz kayıtları görür.
+  satis_aday: [...READ_WRITE, "import", "export"],
+  satis_firsat: [...READ_WRITE],
+  satis_aktivite: [...READ_WRITE],
+  satis_teklif: [...READ_WRITE],
+  satis_sablon: [...READ_WRITE],
+  satis_entegrasyon: ["read", "update"],
+  satis_hepsi: READ_ONLY,
+  satis_asama: ["read", "update"],
+
   // Görev / ticket (Plan 8)
   gorevler: [...READ_WRITE, "assign"],
   sorunlar: [...READ_WRITE, "assign"],

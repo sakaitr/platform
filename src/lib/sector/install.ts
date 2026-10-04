@@ -1,6 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { dbAdmin } from "@/db/admin";
 import {
+  crmStages,
+  crmTemplates,
   entityFields,
   numberingSequences,
   rolePermissions,
@@ -135,6 +137,35 @@ export async function applySectorPack(tenantId: string, packKey: string): Promis
         );
       }
     }
+  }
+
+  // Satış CRM varsayılanları — (kiracı, anahtar/ad) benzersiz olduğu için tekrar uygulamada çoğalmaz.
+  if (pack.crmDefaults) {
+    await dbAdmin
+      .insert(crmStages)
+      .values(
+        pack.crmDefaults.stages.map((stage, index) => ({
+          tenantId,
+          key: stage.key,
+          label: stage.label,
+          kind: stage.kind,
+          color: stage.color ?? null,
+          position: index + 1,
+        })),
+      )
+      .onConflictDoNothing();
+    await dbAdmin
+      .insert(crmTemplates)
+      .values(
+        pack.crmDefaults.templates.map((template) => ({
+          tenantId,
+          name: template.name,
+          channel: template.channel,
+          subject: template.subject ?? null,
+          body: template.body,
+        })),
+      )
+      .onConflictDoNothing();
   }
 
   await dbAdmin
