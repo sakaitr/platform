@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Button, inputClass } from "@/components/ui";
+import { useFormAction } from "@/components/ui/use-form-action";
 import { addActivityAction, type ActionState } from "@/modules/satis/pipeline-actions";
 
 /** Aday ya da fırsat için not/arama/görüşme/e-posta kaydı ve görev ekler. */
@@ -17,14 +18,14 @@ export function ActivityForm({
   /** Yalnız tüm kayıtları görebilenler başkasına görev atar. */
   canAssign: boolean;
 }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(addActivityAction, null);
+  const { state, pending, onSubmit } = useFormAction<ActionState>(addActivityAction, null);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state && "ok" in state) ref.current?.reset();
   }, [state]);
 
   return (
-    <form ref={ref} action={action} className="grid gap-2 sm:grid-cols-6">
+    <form ref={ref} onSubmit={onSubmit} className="grid gap-2 sm:grid-cols-6">
       <input type="hidden" name="leadId" value={leadId ?? ""} />
       <input type="hidden" name="dealId" value={dealId ?? ""} />
       <select name="type" aria-label="Tür" defaultValue="note" className={`${inputClass} sm:col-span-1`}>

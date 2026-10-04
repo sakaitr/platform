@@ -22,7 +22,7 @@ export function Sidebar({ items, tenantName }: { items: NavItem[]; tenantName: s
   const pathname = usePathname();
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-neutral-200 bg-white">
+    <aside className="flex w-60 shrink-0 flex-col border-r border-neutral-200 bg-white print:hidden">
       <div className="border-b border-neutral-200 px-5 py-4">
         <p className="text-sm font-semibold">Agno Platform</p>
         <p className="truncate text-xs text-neutral-500">{tenantName}</p>

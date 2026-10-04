@@ -1,7 +1,32 @@
 import { and, asc, count, eq } from "drizzle-orm";
+import { SECTOR_PACKS } from "@/lib/sector/packs";
 import { crmDeals, crmStages } from "@/db/schema";
 import type { TenantTx } from "@/db/tenant";
 import { stageKeyFromLabel, swapPosition, validateStageSet, type StageKind } from "./stages";
+
+/**
+ * `satis` modülü satis_crm dışında bir pakete sonradan açılmış olabilir (operatör paneli); o zaman
+ * paket kurulumu aşamaları yazmamıştır. Aşama yoksa paketin varsayılan beş aşaması yazılır.
+ * İdempotent: (kiracı, anahtar) benzersiz olduğu için eşzamanlı çağrı çoğaltmaz.
+ */
+export async function ensureDefaultStages(tx: TenantTx, tenantId: string): Promise<void> {
+  const [row] = await tx.select({ n: count() }).from(crmStages).where(eq(crmStages.tenantId, tenantId));
+  if ((row?.n ?? 0) > 0) return;
+  const defaults = SECTOR_PACKS.satis_crm!.crmDefaults!.stages;
+  await tx
+    .insert(crmStages)
+    .values(
+      defaults.map((stage, index) => ({
+        tenantId,
+        key: stage.key,
+        label: stage.label,
+        kind: stage.kind,
+        color: stage.color ?? null,
+        position: index + 1,
+      })),
+    )
+    .onConflictDoNothing();
+}
 
 export class StageError extends Error {
   constructor(message: string) {

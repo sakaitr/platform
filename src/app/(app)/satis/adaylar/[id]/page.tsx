@@ -29,6 +29,9 @@ import {
 import { whatsappNumber } from "@/modules/satis/normalize";
 import { getLeadDetail, listOwnerOptions } from "@/modules/satis/queries";
 import { canSeeAll } from "@/modules/satis/visibility";
+import { logTemplateUseAction } from "@/modules/satis/template-actions";
+import { listTemplates } from "@/modules/satis/template-queries";
+import { mailtoLink, renderTemplate, whatsappLink } from "@/modules/satis/templates";
 import { ActivityForm } from "../../_components/activity-form";
 
 const ERRORS: Record<string, string> = {
@@ -61,6 +64,8 @@ export default async function AdayDetayPage({
   if (!detail) notFound();
   const { lead, contacts, deals, activities } = detail;
   const owners = await listOwnerOptions(session.tenantId);
+  const canTemplates = session.permissions.has("satis_sablon:read");
+  const templates = canTemplates ? await listTemplates(session.tenantId) : [];
 
   const seeAll = canSeeAll(session);
   const canUpdate = session.permissions.has("satis_aday:update");
@@ -309,6 +314,46 @@ export default async function AdayDetayPage({
           ) : null}
         </Card>
       </div>
+
+      {templates.length > 0 ? (
+        <Card className="space-y-3 p-4">
+          <h2 className="text-sm font-semibold">Mesaj şablonları</h2>
+          <ul className="space-y-3">
+            {templates.map((tpl) => {
+              const vars = { firma: lead.name, ad: lead.contactName ?? lead.name, hizmet: lead.service, sehir: lead.city, sektor: lead.sector };
+              const text = renderTemplate(tpl.body, vars);
+              const subject = tpl.subject ? renderTemplate(tpl.subject, vars) : null;
+              const href = tpl.channel === "whatsapp" ? whatsappLink(lead.phone, text) : mailtoLink(lead.email, subject, text);
+              return (
+                <li key={tpl.id} className="space-y-1 rounded-lg border border-neutral-200 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-medium">{tpl.name}</span>
+                    <span className="flex items-center gap-2">
+                      {href ? (
+                        <a href={href} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs hover:bg-neutral-50">
+                          {tpl.channel === "whatsapp" ? "WhatsApp'ta aç" : "E-posta aç"}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-neutral-400">{tpl.channel === "whatsapp" ? "Telefon yok" : "E-posta yok"}</span>
+                      )}
+                      {canActivity ? (
+                        <form action={logTemplateUseAction}>
+                          <input type="hidden" name="leadId" value={lead.id} />
+                          <input type="hidden" name="name" value={tpl.name} />
+                          <input type="hidden" name="channel" value={tpl.channel} />
+                          <Button type="submit" variant="ghost">Gönderdim, kayda geç</Button>
+                        </form>
+                      ) : null}
+                    </span>
+                  </div>
+                  {subject ? <p className="text-xs text-neutral-500">Konu: {subject}</p> : null}
+                  <p className="whitespace-pre-wrap text-sm text-neutral-700">{text}</p>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      ) : null}
 
       <Card className="space-y-4 p-4">
         <h2 className="text-sm font-semibold">Hareketler ve görevler</h2>

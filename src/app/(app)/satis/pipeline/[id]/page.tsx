@@ -137,7 +137,12 @@ export default async function FirsatDetayPage({
 
       {can("satis.teklif") ? (
         <Card className="p-4">
-          <h2 className="mb-3 text-sm font-semibold">Teklifler</h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Teklifler</h2>
+            {session.permissions.has("satis_teklif:create") ? (
+              <Link href={`/satis/teklifler/yeni?firsat=${deal.id}`} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs hover:bg-neutral-50">Teklif oluştur</Link>
+            ) : null}
+          </div>
           {quotes.length === 0 ? (
             <p className="text-sm text-neutral-500">Bu fırsat için teklif yok.</p>
           ) : (

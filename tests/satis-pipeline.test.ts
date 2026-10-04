@@ -273,3 +273,35 @@ describe("aşama yönetimi (veritabanı)", () => {
     await expect(run((tx) => deleteStage(tx, tenantId, foreign.id))).rejects.toThrow(/bulunamadı/);
   });
 });
+
+describe("satis modülü başka pakete sonradan açıldığında", () => {
+  it("varsayılan aşamalar ilk kullanımda kurulur ve çoğalmaz", async () => {
+    await resetDatabase();
+    const { listStages } = await import("@/modules/satis/pipeline-queries");
+    const [t] = await dbAdmin
+      .insert(tenants)
+      .values({ name: "Tur", slug: "tur", sectorPack: "turizm", sectorPackVersion: "1.0.0" })
+      .returning();
+    await dbAdmin.insert(subscriptions).values({ tenantId: t!.id, status: "active" });
+    await applySectorPack(t!.id, "turizm");
+    expect(await dbAdmin.select().from(crmStages).where(eq(crmStages.tenantId, t!.id))).toHaveLength(0);
+
+    const first = await listStages(t!.id);
+    expect(first.map((s) => s.label)).toEqual(["Yeni", "Görüşüldü", "Teklif", "Kazanıldı", "Kaybedildi"]);
+    // eşzamanlı ilk kullanımlar da çoğaltmaz
+    await Promise.all([listStages(t!.id), listStages(t!.id), listStages(t!.id)]);
+    expect(await dbAdmin.select().from(crmStages).where(eq(crmStages.tenantId, t!.id))).toHaveLength(5);
+
+    const dealId = await withTenant(t!.id, (tx) => createDeal(tx, t!.id, { title: "İlk" }));
+    expect(dealId).toBeTruthy();
+  });
+
+  it("kullanıcı bir aşamayı sildiyse varsayılanlar geri gelmez (yalnız hiç aşama yokken kurulur)", async () => {
+    await resetDatabase();
+    const tenantId = await seedTenant("t9");
+    const gorusuldu = await stageByKey(tenantId, "gorusuldu");
+    await withTenant(tenantId, (tx) => deleteStage(tx, tenantId, gorusuldu.id));
+    const { listStages } = await import("@/modules/satis/pipeline-queries");
+    expect((await listStages(tenantId)).map((s) => s.label)).toEqual(["Yeni", "Teklif", "Kazanıldı", "Kaybedildi"]);
+  });
+});

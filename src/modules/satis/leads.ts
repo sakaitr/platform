@@ -13,6 +13,7 @@ import {
 import type { TenantTx } from "@/db/tenant";
 import { buildLeadKeys, type LeadKeys } from "./normalize";
 import { resolveScore, type Temperature } from "./scoring";
+import { ensureDefaultStages } from "./stage-service";
 
 /**
  * Aday yaşam döngüsünün tek yeri: form, CSV, Atricard webhook'u ve API hep buradan geçer.
@@ -456,6 +457,7 @@ export async function convertLead(
     throw new ConvertError("Bu aday zaten müşteriye dönüştürülmüş.", "already_converted");
   }
 
+  await ensureDefaultStages(tx, tenantId);
   const [stage] = await tx
     .select({ id: crmStages.id })
     .from(crmStages)

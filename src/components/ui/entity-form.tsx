@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Card, Field, inputClass } from "./index";
+import { useFormAction } from "./use-form-action";
 
 export type FormActionState = { error: string } | { ok: string } | null;
 
@@ -69,7 +70,7 @@ export function EntityForm({
   alwaysOpen?: boolean;
 }) {
   const [open, setOpen] = useState(alwaysOpen || Boolean(idValue));
-  const [state, formAction, pending] = useActionState<FormActionState, FormData>(action, null);
+  const { state, pending, onSubmit } = useFormAction<FormActionState>(action, null);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Yeni kayıt başarılıysa alanları boşalt — üst üste kayıt girerken
@@ -82,7 +83,7 @@ export function EntityForm({
 
   return (
     <Card className="w-full p-4">
-      <form ref={formRef} action={formAction} className="grid gap-3 sm:grid-cols-2">
+      <form ref={formRef} onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-2">
         {idValue ? <input type="hidden" name="id" value={idValue} /> : null}
         {Object.entries(extraHidden ?? {}).map(([k, v]) => (
           <input key={k} type="hidden" name={k} value={v} />

@@ -42,14 +42,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen print:block print:h-auto">
       <Sidebar items={items} tenantName={access.tenant.name} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar name={session.name} email={session.email} />
         {access.state === "grace" ? (
           <GraceBanner periodEnd={access.subscription.currentPeriodEnd} />
         ) : null}
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-6 print:overflow-visible print:p-0">{children}</main>
       </div>
     </div>
   );

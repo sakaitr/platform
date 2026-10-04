@@ -2,6 +2,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { crmActivities, crmDeals, crmLeads, crmStages, type CrmStage } from "@/db/schema";
 import type { TenantTx } from "@/db/tenant";
 import { logSystemActivity } from "./leads";
+import { ensureDefaultStages } from "./stage-service";
 
 export class DealError extends Error {
   constructor(
@@ -40,6 +41,7 @@ export async function createDeal(tx: TenantTx, tenantId: string, input: NewDealI
     if (stage.kind !== "open") stageId = null;
   }
   if (!stageId) {
+    await ensureDefaultStages(tx, tenantId);
     const [first] = await tx
       .select({ id: crmStages.id })
       .from(crmStages)

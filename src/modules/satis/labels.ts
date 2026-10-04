@@ -47,3 +47,10 @@ export const TEMPERATURE_OPTIONS = ["hot", "warm", "cold"].map((value) => ({
   value,
   label: TEMPERATURE_LABEL[value]!,
 }));
+
+export const QUOTE_STATUS: Record<string, { label: string; tone: string }> = {
+  draft: { label: "Taslak", tone: "mute" },
+  sent: { label: "Gönderildi", tone: "info" },
+  accepted: { label: "Kabul edildi", tone: "ok" },
+  rejected: { label: "Reddedildi", tone: "bad" },
+};

@@ -1,5 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { crmActivities, crmDeals, crmLeads, users } from "@/db/schema";
+import { crmActivities, crmDeals, crmLeads, crmQuotes, users } from "@/db/schema";
 import type { TenantTx } from "@/db/tenant";
 import { canSeeAll, ownerVisibility, type VisibilitySession } from "./visibility";
 
@@ -78,6 +78,27 @@ export async function findVisibleActivityIds(
         eq(crmActivities.tenantId, session.tenantId),
         inArray(crmActivities.id, [...ids]),
         ownerVisibility(crmActivities.assigneeUserId, session),
+      ),
+    );
+  return rows.map((r) => r.id);
+}
+
+/** Teklifin görünürlüğü bağlı fırsatınkine uyar (sahibi kendisi ya da sahipsiz; yönetici hepsi). */
+export async function findVisibleQuoteIds(
+  tx: TenantTx,
+  session: VisibilitySession,
+  ids: readonly string[],
+): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const rows = await tx
+    .select({ id: crmQuotes.id })
+    .from(crmQuotes)
+    .innerJoin(crmDeals, eq(crmDeals.id, crmQuotes.dealId))
+    .where(
+      and(
+        eq(crmQuotes.tenantId, session.tenantId),
+        inArray(crmQuotes.id, [...ids]),
+        ownerVisibility(crmDeals.ownerUserId, session),
       ),
     );
   return rows.map((r) => r.id);

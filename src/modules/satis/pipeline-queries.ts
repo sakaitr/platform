@@ -3,18 +3,20 @@ import { companies, crmActivities, crmDeals, crmLeads, crmQuotes, crmStages, use
 import { withTenant } from "@/db/tenant";
 import { istanbulDayKey } from "@/lib/time";
 import { istanbulDayRange } from "./dates";
+import { ensureDefaultStages } from "./stage-service";
 import { ownerVisibility, type VisibilitySession } from "./visibility";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function listStages(tenantId: string) {
-  return withTenant(tenantId, (tx) =>
-    tx
+  return withTenant(tenantId, async (tx) => {
+    await ensureDefaultStages(tx, tenantId);
+    return tx
       .select()
       .from(crmStages)
       .where(eq(crmStages.tenantId, tenantId))
-      .orderBy(asc(crmStages.position), asc(crmStages.createdAt)),
-  );
+      .orderBy(asc(crmStages.position), asc(crmStages.createdAt));
+  });
 }
 
 /** Aşama başına en fazla bu kadar kart yüklenir; fazlası "daha fazla" ile liste görünümüne bırakılır. */

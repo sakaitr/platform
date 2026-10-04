@@ -9,6 +9,7 @@ import {
   crmStages,
   passengers,
   roles,
+  tenantCapabilities,
   portalUserCompanies,
   portalUsers,
   tenants,
@@ -32,7 +33,7 @@ async function seedSatis(): Promise<void> {
     ownerName: "Satis Owner",
     ownerPassword: "E2eTest1234!",
   });
-  await provisionTenant({
+  const { tenantId: tenantB } = await provisionTenant({
     name: "E2E Satis B",
     slug: "e2e-satis-b",
     sectorPack: "satis_crm",
@@ -40,6 +41,10 @@ async function seedSatis(): Promise<void> {
     ownerName: "Satis B Owner",
     ownerPassword: "E2eTest1234!",
   });
+  // B kiracısında teklif yeteneği kapalı: menüden gizlenir, URL ve server action da çalışmaz
+  await dbAdmin
+    .delete(tenantCapabilities)
+    .where(and(eq(tenantCapabilities.tenantId, tenantB), eq(tenantCapabilities.capabilityKey, "satis.teklif")));
 
   const roleId = async (key: string): Promise<string> => {
     const [row] = await dbAdmin
