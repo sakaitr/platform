@@ -1,9 +1,12 @@
 import "dotenv/config";
 import { inArray } from "drizzle-orm";
 import { dbAdmin } from "@/db/admin";
+import { and, eq } from "drizzle-orm";
 import {
   companies,
+  crmLeads,
   passengers,
+  roles,
   portalUserCompanies,
   portalUsers,
   tenants,
@@ -15,7 +18,50 @@ import { hashPassword } from "@/lib/auth";
 import { createRole } from "@/lib/rbac";
 import { provisionTenant } from "@/lib/sector/install";
 
-const E2E_SLUGS = ["e2e-lojistik", "e2e-pilates", "e2e-kisitli"];
+const E2E_SLUGS = ["e2e-lojistik", "e2e-pilates", "e2e-kisitli", "e2e-satis", "e2e-satis-b"];
+
+/** Satış CRM (AtriCRM) kiracıları: yönetici, iki satışçı + izolasyon sınaması için ikinci kiracı. */
+async function seedSatis(): Promise<void> {
+  const { tenantId } = await provisionTenant({
+    name: "E2E Satis",
+    slug: "e2e-satis",
+    sectorPack: "satis_crm",
+    ownerEmail: "satis@e2e.test",
+    ownerName: "Satis Owner",
+    ownerPassword: "E2eTest1234!",
+  });
+  await provisionTenant({
+    name: "E2E Satis B",
+    slug: "e2e-satis-b",
+    sectorPack: "satis_crm",
+    ownerEmail: "satis-b@e2e.test",
+    ownerName: "Satis B Owner",
+    ownerPassword: "E2eTest1234!",
+  });
+
+  const roleId = async (key: string): Promise<string> => {
+    const [row] = await dbAdmin
+      .select({ id: roles.id })
+      .from(roles)
+      .where(and(eq(roles.tenantId, tenantId), eq(roles.key, key)));
+    return row!.id;
+  };
+  const passwordHash = await hashPassword("E2eTest1234!");
+  const [manager, repOne, repTwo] = await dbAdmin
+    .insert(users)
+    .values([
+      { tenantId, email: "yonetici@e2e.test", name: "Yonetici Kisi", passwordHash, roleId: await roleId("satis_yonetici") },
+      { tenantId, email: "satisci1@e2e.test", name: "Satisci Bir", passwordHash, roleId: await roleId("satisci") },
+      { tenantId, email: "satisci2@e2e.test", name: "Satisci Iki", passwordHash, roleId: await roleId("satisci") },
+    ])
+    .returning();
+  void manager;
+  await dbAdmin.insert(crmLeads).values([
+    { tenantId, name: "Birinci Satiscinin Adayi", ownerUserId: repOne!.id, source: "manual" },
+    { tenantId, name: "Ikinci Satiscinin Adayi", ownerUserId: repTwo!.id, source: "manual" },
+    { tenantId, name: "Sahipsiz Aday", source: "manual" },
+  ]);
+}
 
 async function main(): Promise<void> {
   // Idempotent: önceki E2E kiracılarını temizle (cascade ile bağlı her şey gider)
@@ -106,6 +152,8 @@ async function main(): Promise<void> {
     { tenantId, ticketNo: "SEED-ALFA", title: "Alfa talebi", companyId: alfa!.id },
     { tenantId, ticketNo: "SEED-BETA", title: "Beta talebi", companyId: beta!.id },
   ]);
+
+  await seedSatis();
 
   console.log("E2E tenants provisioned");
   process.exit(0);
